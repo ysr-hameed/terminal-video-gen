@@ -8,12 +8,8 @@ Demo configs generate: hook → `python3 --version` → `mkdir vault` → `cd va
 
 ---
 ## Demo
-
-Watch the generator in action:
-
-https://github.com/ysr-hameed/terminal-video-gen/raw/refs/heads/main/output/video.mp4
-
-<video src="./output/video.mp4" controls width="360"></video>
+Watch a Look of Generated Video
+<video src="https://github.com/ysr-hameed/terminal-video-gen/raw/refs/heads/main/output/video.mp4" controls width="360"></video>
 
 ## Table of Contents
 - [Features](#features)
