@@ -144,7 +144,7 @@ def load_font():
     return ImageFont.load_default(), None
 
 FONT, FONT_PATH = load_font()
-CENTER_FONT_SIZE = int(FONT_SIZE * 1.28)
+CENTER_FONT_SIZE = int(FONT_SIZE * 1.10)
 try:
     CENTER_FONT = ImageFont.truetype(FONT_PATH, CENTER_FONT_SIZE) if FONT_PATH else FONT
 except Exception:
@@ -420,6 +420,7 @@ def render_hook(entry):
     return img
 
 # ================= EXPLAIN SCENE =================
+_EXPLAIN_FULL_CACHE = {}
 _EXPLAIN_BG_CACHE = {}
 
 def _draw_code_block(img, lines, indices, dim=1.0):
@@ -461,6 +462,15 @@ def count_rows(lines, indices):
 def target_row_of(lines, idx, settled):
     rows_before = count_rows(lines, [i for i in sorted(settled) if i < idx])
     return rows_before, count_rows(lines, [idx])
+
+def get_explain_full(lines):
+    key = tuple(lines)
+    if key in _EXPLAIN_FULL_CACHE:
+        return _EXPLAIN_FULL_CACHE[key]
+    img = EDITOR_BASE.copy()
+    _draw_code_block(img, lines, range(len(lines)), dim=1.0)
+    _EXPLAIN_FULL_CACHE[key] = img
+    return img
 
 def get_explain_bg(lines, settled):
     key = tuple(sorted(settled))
@@ -518,7 +528,6 @@ def draw_statusbar(draw, fname):
 
 def render_explain(entry):
     lines = entry["lines"]
-    settled = entry["settled"]
     active = entry["active"]
     phase = entry["phase"]
     t = entry.get("t", 1.0)
@@ -530,55 +539,29 @@ def render_explain(entry):
         draw_header(draw, fname)
         draw_statusbar(draw, fname)
         return img
-    img = get_explain_bg(lines, settled).copy()
+
+    # full code always visible as background
+    img = get_explain_full(lines).copy()
     draw = ImageDraw.Draw(img)
     draw_header(draw, fname)
     draw_statusbar(draw, fname)
-    line = lines[active] if active is not None and 0 <= active < len(lines) else ""
-    max_center_w = RW - 200 * RENDER_SCALE
+
+    if active is None:
+        return img
+
+    line = lines[active] if 0 <= active < len(lines) else ""
+    # max width for center card — keep comfortable padding
+    max_center_w = RW - 220 * RENDER_SCALE
     li_img = render_line_image_wrapped(line, CENTER_FONT, max_center_w) if line else None
-    rows_before, own_rows = target_row_of(lines, active, settled) if active is not None else (0, 1)
+
+    # target row in full code (not settled subset)
+    rows_before = count_rows(lines, list(range(active))) if active is not None else 0
+    own_rows = count_rows(lines, [active]) if active is not None else 1
     tgt_y = Y0 + rows_before * LINE_HEIGHT
     tgt_x = CODE_X
-    if phase == "center":
-        e = ease_out(min(1.0, t))
-        scale = 0.72 + 0.28 * e
-        cy = int(RH * 0.42)
-        if li_img:
-            w, h = li_img.size
-            sw, sh = int(w * scale), int(h * scale)
-            frame = li_img.resize((max(1, sw), max(1, sh)), Image.LANCZOS)
-            px, py = int(RW / 2 - sw / 2), int(cy - sh / 2)
-            pad_x, pad_y = int(46 * scale), int(30 * scale)
-            draw.rounded_rectangle(
-                [px - pad_x, py - pad_y, px + sw + pad_x, py + sh + pad_y],
-                radius=22 * RENDER_SCALE, fill=CARD_BG, outline=ACCENT, width=3 * RENDER_SCALE)
-            img.paste(frame, (px, py), frame)
-        if active is not None:
-            badge = f"line {active + 1}"
-            bw = tw(draw, badge)
-            cy_badge = cy - (li_img.height * scale // 2 if li_img else 0) - int(LINE_HEIGHT * 1.2) if li_img else cy - int(LINE_HEIGHT * 2.6)
-            bx, by = int(RW / 2 - bw / 2), int(cy_badge)
-            draw.rounded_rectangle([bx - 18 * RENDER_SCALE, by - 8 * RENDER_SCALE,
-                                    bx + bw + 18 * RENDER_SCALE, by + LINE_HEIGHT - 4 * RENDER_SCALE],
-                                   radius=14 * RENDER_SCALE, fill=(40, 50, 68))
-            draw.text((bx, by), badge, font=FONT, fill=(230, 237, 243))
-    elif phase == "move":
-        e = ease_io(min(1.0, t))
-        cy = int(RH * 0.42)
-        start_x = int(RW / 2 - (li_img.width / 2 if li_img else 0))
-        start_y = cy - (li_img.height // 2 if li_img else 0)
-        cur_x = int(start_x + (tgt_x - start_x) * e)
-        cur_y = int(start_y + (tgt_y + 4 - start_y) * e)
-        scale = 1.0 + (1.0 - FONT_SIZE / CENTER_FONT_SIZE) * (1 - e)
-        # ghost slot
-        draw.rectangle([0, tgt_y - 3, RW, tgt_y + own_rows * LINE_HEIGHT - 9], fill=(24, 30, 40))
-        if li_img:
-            w, h = li_img.size
-            sw, sh = max(1, int(w * scale)), max(1, int(h * scale))
-            frame = li_img.resize((sw, sh), Image.LANCZOS)
-            img.paste(frame, (cur_x, cur_y), frame)
-    elif phase == "settled":
+
+    # highlight in place — brief flash before lift and after return
+    if phase in ("highlight", "settled"):
         draw.rectangle([0, tgt_y - 3, RW, tgt_y + own_rows * LINE_HEIGHT - 9], fill=ACTIVE_LINE)
         num = str(active + 1)
         nw = tw(draw, num)
@@ -596,6 +579,91 @@ def render_explain(entry):
                     draw.text((cx, yy), text, font=FONT, fill=color)
                 cx += tw(draw, text)
             yy += LINE_HEIGHT
+        return img
+
+    # for lift/center/return we hide original line with a ghost placeholder
+    draw.rectangle([0, tgt_y - 3, RW, tgt_y + own_rows * LINE_HEIGHT - 9], fill=(26, 32, 44))
+    # subtle dashed gutter number dimmed
+    if line:
+        num = str(active + 1)
+        nw = tw(draw, num)
+        draw.text((GUTTER_W - nw - 12 * RENDER_SCALE, tgt_y), num, font=FONT, fill=(60, 68, 82))
+
+    cy = int(RH * 0.40)
+    ratio = FONT_SIZE / CENTER_FONT_SIZE
+
+    if phase == "lift":
+        e = ease_io(min(1.0, t))
+        if li_img:
+            w, h = li_img.size
+            # centered target
+            cx_target = int(RW / 2 - w / 2)
+            cy_target = int(cy - h / 2)
+            cur_x = int(tgt_x + (cx_target - tgt_x) * e)
+            cur_y = int(tgt_y + 4 + (cy_target - (tgt_y + 4)) * e)
+            scale = ratio + (1.0 - ratio) * e
+            sw, sh = max(1, int(w * scale)), max(1, int(h * scale))
+            frame = li_img.resize((sw, sh), Image.LANCZOS)
+            # shadow
+            pad_x, pad_y = int(32 * scale), int(22 * scale)
+            draw.rounded_rectangle(
+                [cur_x - pad_x + 6, cur_y - pad_y + 6, cur_x + sw + pad_x + 6, cur_y + sh + pad_y + 6],
+                radius=16 * RENDER_SCALE, fill=(15, 20, 28))
+            draw.rounded_rectangle(
+                [cur_x - pad_x, cur_y - pad_y, cur_x + sw + pad_x, cur_y + sh + pad_y],
+                radius=16 * RENDER_SCALE, fill=CARD_BG, outline=(52, 60, 74), width=1 * RENDER_SCALE)
+            img.paste(frame, (cur_x, cur_y), frame)
+
+    elif phase == "center":
+        e = ease_out(min(1.0, t))
+        scale = 0.86 + 0.14 * e
+        if li_img:
+            w, h = li_img.size
+            sw, sh = int(w * scale), int(h * scale)
+            frame = li_img.resize((max(1, sw), max(1, sh)), Image.LANCZOS)
+            px, py = int(RW / 2 - sw / 2), int(cy - sh / 2)
+            pad_x, pad_y = int(36 * scale), int(24 * scale)
+            # shadow
+            draw.rounded_rectangle(
+                [px - pad_x + 6 * RENDER_SCALE, py - pad_y + 6 * RENDER_SCALE,
+                 px + sw + pad_x + 6 * RENDER_SCALE, py + sh + pad_y + 6 * RENDER_SCALE],
+                radius=16 * RENDER_SCALE, fill=(15, 20, 28))
+            # card
+            draw.rounded_rectangle(
+                [px - pad_x, py - pad_y, px + sw + pad_x, py + sh + pad_y],
+                radius=16 * RENDER_SCALE, fill=CARD_BG, outline=(52, 60, 74), width=1 * RENDER_SCALE)
+            img.paste(frame, (px, py), frame)
+        # clean badge — small pill centered above card
+        badge = f"Line {active + 1}"
+        bw = tw(draw, badge, FONT)
+        # position above card
+        card_top = cy - (li_img.height * scale // 2 if li_img else 0) - 24 * RENDER_SCALE if li_img else cy
+        bx, by = int(RW / 2 - bw / 2), int(card_top - LINE_HEIGHT * 1.05)
+        draw.rounded_rectangle([bx - 16 * RENDER_SCALE, by - 6 * RENDER_SCALE,
+                                bx + bw + 16 * RENDER_SCALE, by + LINE_HEIGHT - 10 * RENDER_SCALE],
+                               radius=12 * RENDER_SCALE, fill=(38, 46, 62))
+        draw.text((bx, by + 2), badge, font=FONT, fill=(190, 198, 212))
+
+    elif phase == "return":
+        e = ease_io(min(1.0, t))
+        if li_img:
+            w, h = li_img.size
+            cx_start = int(RW / 2 - w / 2)
+            cy_start = int(cy - h / 2)
+            cur_x = int(cx_start + (tgt_x - cx_start) * e)
+            cur_y = int(cy_start + (tgt_y + 4 - cy_start) * e)
+            scale = 1.0 + (ratio - 1.0) * e
+            sw, sh = max(1, int(w * scale)), max(1, int(h * scale))
+            frame = li_img.resize((sw, sh), Image.LANCZOS)
+            pad_x, pad_y = int(32 * scale), int(22 * scale)
+            draw.rounded_rectangle(
+                [cur_x - pad_x + 6, cur_y - pad_y + 6, cur_x + sw + pad_x + 6, cur_y + sh + pad_y + 6],
+                radius=16 * RENDER_SCALE, fill=(15, 20, 28))
+            draw.rounded_rectangle(
+                [cur_x - pad_x, cur_y - pad_y, cur_x + sw + pad_x, cur_y + sh + pad_y],
+                radius=16 * RENDER_SCALE, fill=CARD_BG, outline=(52, 60, 74), width=1 * RENDER_SCALE)
+            img.paste(frame, (cur_x, cur_y), frame)
+
     return img
 
 # ================= TERMINAL / EDITOR RENDER =================
@@ -766,8 +834,10 @@ def write_wav(path, float_arr, sr):
         w.writeframes(ints.tobytes())
 
 # ================= TIMELINE =================
-MOVE_FRAMES = 16
-SETTLE_FRAMES = int(FPS * 0.25)
+LIFT_FRAMES = 14
+RETURN_FRAMES = 14
+SETTLE_FRAMES = int(FPS * 0.22)
+HIGHLIGHT_FRAMES = 10
 
 def build_timeline(config, voice):
     frames, clicks, narration_events = [], [], []
@@ -901,19 +971,10 @@ def build_timeline(config, voice):
             for i in range(int(FPS * 0.7)):
                 push({"type": "editor", "file": fname, "typed": typed, "cursor": cursor_state(fc[0])})
 
-            # PHASE B — explain each line briefly
-            settled = set()
-            prev_ln = -1
+            # PHASE B — explain each line: highlight → lift → center → return
             for ri, rv in enumerate(reveals):
                 ln = max(0, min(int(rv.get("line", 1)) - 1, len(code_lines) - 1))
                 say = (rv.get("say") or "").strip()
-                # gap-fill blank/skipped lines quickly
-                for gap in range(prev_ln + 1, ln):
-                    if gap not in settled:
-                        settled.add(gap)
-                        for _ in range(4):
-                            push({"type": "explain", "file": fname, "lines": code_lines,
-                                  "settled": set(settled), "active": None, "phase": "center", "t": 1})
                 dur = int(FPS * 0.5)
                 if say:
                     try:
@@ -922,28 +983,37 @@ def build_timeline(config, voice):
                         dur = max(int(FPS * 0.6), int(round(len(pcm) / SR * FPS)) + int(FPS * 0.15))
                     except Exception as e:
                         print(f"  [{idx + 1}/{total}] line TTS FAIL: {e}")
+
+                # brief highlight in place
+                for _ in range(HIGHLIGHT_FRAMES):
+                    push({"type": "explain", "file": fname, "lines": code_lines,
+                          "active": ln, "phase": "highlight", "t": 1})
+                # lift to center
+                clicks.append((now_s(), False, False))
+                clicks.append((now_s() + int(SR * 0.03), False, True))
+                for f in range(LIFT_FRAMES):
+                    push({"type": "explain", "file": fname, "lines": code_lines,
+                          "active": ln, "phase": "lift", "t": f / (LIFT_FRAMES - 1)})
+                # center hold (clean card)
                 for z in range(10):
                     push({"type": "explain", "file": fname, "lines": code_lines,
-                          "settled": set(settled), "active": ln, "phase": "center",
-                          "t": z / 9})
+                          "active": ln, "phase": "center", "t": z / 9})
                 for _ in range(max(0, dur - 10)):
                     push({"type": "explain", "file": fname, "lines": code_lines,
-                          "settled": set(settled), "active": ln, "phase": "center", "t": 1.0})
-                clicks.append((now_s(), True, False))
+                          "active": ln, "phase": "center", "t": 1.0})
+                # return to place
+                clicks.append((now_s(), False, False))
                 clicks.append((now_s() + int(SR * 0.03), False, True))
-                for m in range(MOVE_FRAMES):
+                for f in range(RETURN_FRAMES):
                     push({"type": "explain", "file": fname, "lines": code_lines,
-                          "settled": set(settled), "active": ln, "phase": "move",
-                          "t": m / (MOVE_FRAMES - 1)})
-                settled.add(ln)
-                prev_ln = ln
+                          "active": ln, "phase": "return", "t": f / (RETURN_FRAMES - 1)})
                 for _ in range(SETTLE_FRAMES):
                     push({"type": "explain", "file": fname, "lines": code_lines,
-                          "settled": set(settled), "active": ln, "phase": "settled", "t": 1})
+                          "active": ln, "phase": "settled", "t": 1})
 
             for _ in range(int(FPS * 1.8)):
                 push({"type": "explain", "file": fname, "lines": code_lines,
-                      "settled": set(settled), "active": None, "phase": "final", "t": 1})
+                      "active": None, "phase": "final", "t": 1})
             path = os.path.join(os.getcwd(), fname)
             d = os.path.dirname(path)
             if d:
