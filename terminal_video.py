@@ -121,6 +121,7 @@ steps:
   - type: hook
     title: "Stop using weak passwords"
     sub: "Let's fix that in 60 seconds"
+    narration: "Stop scrolling! Still using weak passwords? You're at risk. Watch this sixty second fix."
 
   - narration: "First up — let's make sure Python is ready. This just prints your version."
     command: "python3 --version"
@@ -391,15 +392,24 @@ def render_hook(entry):
     img = TERM_BASE.copy()
     draw = ImageDraw.Draw(img)
 
-    # --- top badge: scroll-stopper ---
-    badge = "  60-SECOND  FIX  "
+    # --- top badge: scroll-stopper (perfectly centered) ---
+    badge = "STOP SCROLLING  •  60s FIX"
     bw = tw(draw, badge, FONT)
-    # badge background accent
-    bx = RW // 2 - bw // 2 - 6 * RENDER_SCALE
-    by = int(RH * 0.26)
-    draw.rounded_rectangle([bx - 18 * RENDER_SCALE, by - 10 * RENDER_SCALE,
-                            bx + bw + 18 * RENDER_SCALE, by + 32 * RENDER_SCALE],
+    bh = th(draw, badge, FONT)
+    # centered pill
+    pad_x, pad_y = 22 * RENDER_SCALE, 12 * RENDER_SCALE
+    bx = (RW - bw) // 2
+    by = int(RH * 0.22)
+    # shadow
+    draw.rounded_rectangle([bx - pad_x + 4, by - pad_y + 4,
+                            bx + bw + pad_x + 4, by + bh + pad_y + 4],
+                           radius=14 * RENDER_SCALE, fill=(15, 20, 28))
+    draw.rounded_rectangle([bx - pad_x, by - pad_y,
+                            bx + bw + pad_x, by + bh + pad_y],
                            radius=14 * RENDER_SCALE, fill=ACCENT)
+    # vertically centered text inside pill
+    tx, ty = bx, by + (bh // 2 - bh // 2)  # bh measured from bbox includes ascent; use by
+    # fine-tune: draw at bx, by (by aligns to top of bbox, pad_y gives equal top/bottom)
     draw.text((bx, by), badge, font=FONT, fill=TERM_BG)
 
     # wrap title into rows using colored segs
@@ -443,30 +453,36 @@ def render_hook(entry):
         draw.rectangle([last_x + 6, last_y + 8, last_x + 6 + cw, last_y + int(HOOK_TITLE_SIZE * 1.05)], fill=CURSOR_COLOR)
 
     if sub_on and sub:
-        # accent line above subtitle
-        draw.rectangle([RW // 2 - 70 * RENDER_SCALE, y0 + total_h + 22 * RENDER_SCALE,
-                        RW // 2 + 70 * RENDER_SCALE, y0 + total_h + 26 * RENDER_SCALE], fill=ACCENT)
+        # accent line — centered, thin, premium
+        draw.rectangle([RW // 2 - 60 * RENDER_SCALE, y0 + total_h + 20 * RENDER_SCALE,
+                        RW // 2 + 60 * RENDER_SCALE, y0 + total_h + 24 * RENDER_SCALE], fill=ACCENT)
         max_sw = RW - 110 * RENDER_SCALE
         sub_rows = wrap_segments([(sub, OUTPUT_COLOR)], max_sw, draw, HOOK_SUB_FONT)
         sub_lh = int(HOOK_SUB_SIZE * 1.4)
-        sub_y = y0 + total_h + 44 * RENDER_SCALE
+        sub_y = y0 + total_h + 46 * RENDER_SCALE
         for sr in sub_rows:
             plain = "".join(t for t, _ in sr)
             sw = sum(tw(draw, t, HOOK_SUB_FONT) for t, _ in sr)
-            sx = int(RW / 2 - sw / 2)
+            sx = (RW - sw) // 2
             cx = sx
             for txt, col in sr:
                 if txt:
                     draw.text((cx, sub_y), txt, font=HOOK_SUB_FONT, fill=OUTPUT_COLOR)
                 cx += tw(draw, txt, HOOK_SUB_FONT)
             sub_y += sub_lh
-        # bottom "keep watching" pill
+        # bottom "keep watching" pill — perfectly centered, equal padding
         keep = "KEEP  WATCHING  \u25B6"
         kw = tw(draw, keep, FONT)
-        kx = RW // 2 - kw // 2
-        ky = sub_y + 22 * RENDER_SCALE
-        draw.rounded_rectangle([kx - 16 * RENDER_SCALE, ky - 10 * RENDER_SCALE,
-                                kx + kw + 16 * RENDER_SCALE, ky + 30 * RENDER_SCALE],
+        kh = th(draw, keep, FONT)
+        kx = (RW - kw) // 2
+        ky = sub_y + 24 * RENDER_SCALE
+        pad_kx, pad_ky = 18 * RENDER_SCALE, 12 * RENDER_SCALE
+        # shadow
+        draw.rounded_rectangle([kx - pad_kx + 4, ky - pad_ky + 4,
+                                kx + kw + pad_kx + 4, ky + kh + pad_ky + 4],
+                               radius=12 * RENDER_SCALE, fill=(15, 20, 28))
+        draw.rounded_rectangle([kx - pad_kx, ky - pad_ky,
+                                kx + kw + pad_kx, ky + kh + pad_ky],
                                radius=12 * RENDER_SCALE, fill=(38, 46, 62))
         draw.text((kx, ky), keep, font=FONT, fill=(190, 198, 212))
     return img

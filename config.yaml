@@ -5,6 +5,7 @@ steps:
   - type: hook
     title: "Stop using weak passwords"
     sub: "Let's fix that in 60 seconds"
+    narration: "Stop scrolling! Still using weak passwords? You're at risk. Watch this sixty second fix."
 
   - narration: "First up — let's make sure Python is ready. This just prints your version."
     command: "python3 --version"
