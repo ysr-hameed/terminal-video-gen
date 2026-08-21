@@ -1543,6 +1543,15 @@ def main():
         add_into(master, s, pcm * 0.95)
     # optional copyright-free background music — short snippet only, legit
     music_src = config.get("music")
+    # support random viral pick from local 10-pack
+    if isinstance(music_src, str) and music_src.strip().lower() in ("random", "auto", "music/random", "music/*"):
+        import glob
+        cand = sorted(glob.glob("music/*.mp3"))
+        if cand:
+            music_src = random.choice(cand)
+            print(f"  music random pick: {music_src}")
+        else:
+            music_src = None
     if music_src:
         try:
             local = _download_if_url(str(music_src).strip())

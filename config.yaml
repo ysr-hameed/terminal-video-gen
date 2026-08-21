@@ -1,9 +1,11 @@
 theme: auto
 voice: "en-IN-PrabhatNeural"
-# optional viral music — 18s snippet looped, legit free (see music/README.md):
-# music: "https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3?filename=energy-10882.mp3"
-# music_volume: 0.11
-# music_duck: 0.32
+# viral background music — 18s snippet looped, legit free (see music/README.md):
+# 10 synthetic viral loops already downloaded in music/ (2.8MB total, 18s each):
+music: "random"   # picks one of music/*.mp3 randomly each run
+music_volume: 0.11
+music_duck: 0.32
+# or use URL: "https://cdn.pixabay.com/download/audio/2022/03/10/audio_c8c8a73467.mp3?filename=energy-10882.mp3"
 
 steps:
   - type: hook
