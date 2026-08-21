@@ -60,6 +60,38 @@ ERROR_COLOR = (248, 81, 73)
 CURSOR_COLOR = (63, 185, 80)
 ACCENT = (88, 166, 255)
 
+THEMES = {
+    "github": {
+        "TERM_BG": (13, 17, 23), "EDITOR_BG": (18, 22, 30), "ACTIVE_LINE": (32, 42, 58),
+        "CARD_BG": (28, 35, 48), "STATUS_BG": (33, 37, 43), "NUM_COLOR": (92, 99, 112),
+        "ACCENT": (88, 166, 255), "PWD_COLOR": (88, 166, 255), "PROMPT_COLOR": (63, 185, 80),
+    },
+    "dracula": {
+        "TERM_BG": (18, 14, 32), "EDITOR_BG": (24, 18, 42), "ACTIVE_LINE": (48, 38, 72),
+        "CARD_BG": (36, 28, 64), "STATUS_BG": (30, 26, 48), "NUM_COLOR": (98, 92, 112),
+        "ACCENT": (189, 147, 249), "PWD_COLOR": (255, 184, 108), "PROMPT_COLOR": (80, 250, 123),
+    },
+    "forest": {
+        "TERM_BG": (10, 18, 14), "EDITOR_BG": (16, 26, 20), "ACTIVE_LINE": (28, 52, 38),
+        "CARD_BG": (22, 38, 28), "STATUS_BG": (28, 36, 32), "NUM_COLOR": (92, 112, 98),
+        "ACCENT": (63, 185, 80), "PWD_COLOR": (152, 195, 121), "PROMPT_COLOR": (63, 185, 80),
+    },
+}
+
+def apply_theme(name):
+    global TERM_BG, EDITOR_BG, ACTIVE_LINE, CARD_BG, STATUS_BG, NUM_COLOR, ACCENT, PWD_COLOR, PROMPT_COLOR, TERM_BASE, EDITOR_BASE
+    cfg = THEMES.get(name, THEMES["github"])
+    TERM_BG = cfg["TERM_BG"]; EDITOR_BG = cfg["EDITOR_BG"]; ACTIVE_LINE = cfg["ACTIVE_LINE"]
+    CARD_BG = cfg["CARD_BG"]; STATUS_BG = cfg["STATUS_BG"]; NUM_COLOR = cfg["NUM_COLOR"]
+    ACCENT = cfg["ACCENT"]; PWD_COLOR = cfg["PWD_COLOR"]; PROMPT_COLOR = cfg["PROMPT_COLOR"]
+    # rebuild bases and clear caches
+    globals()["TERM_BASE"] = build_term_base()
+    globals()["EDITOR_BASE"] = build_editor_base()
+    _EXPLAIN_FULL_CACHE.clear()
+    if "_EXPLAIN_FULL_BLUR_CACHE" in globals():
+        globals()["_EXPLAIN_FULL_BLUR_CACHE"].clear()
+    _EXPLAIN_BG_CACHE.clear()
+
 IS_TERMUX = os.path.isdir("/data/data/com.termux") or bool(os.environ.get("TERMUX_VERSION"))
 DOCS_DIR = "/storage/emulated/0/Documents" if IS_TERMUX else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "output"
@@ -79,7 +111,10 @@ FONT_CANDIDATES = [
 
 MAX_LINES = max(6, (RH - Y0 - STATUS_H - 20 * RENDER_SCALE) // LINE_HEIGHT)
 
+_EXPLAIN_FULL_BLUR_CACHE = {}
+
 DEFAULT_CONFIG_YAML = """\
+theme: auto
 voice: "en-US-GuyNeural"
 
 steps:
@@ -328,6 +363,24 @@ EDITOR_BASE = build_editor_base()
 
 # ================= HOOK SCENE =================
 
+def _hook_title_segs(title):
+    # color key words to stop scroll — accent / red pop
+    words = title.split()
+    segs = []
+    for wi, w in enumerate(words):
+        low = w.lower().strip("!.,:;")
+        col = (230, 237, 243)
+        if low == "stop":
+            col = ACCENT
+        elif low == "weak":
+            col = ERROR_COLOR
+        elif low in ("password", "passwords"):
+            col = (152, 195, 121)
+        if wi > 0:
+            segs.append((" ", (230, 237, 243)))
+        segs.append((w, col))
+    return segs
+
 def render_hook(entry):
     title = entry.get("title", "")
     sub = entry.get("sub", "")
@@ -338,72 +391,68 @@ def render_hook(entry):
     img = TERM_BASE.copy()
     draw = ImageDraw.Draw(img)
 
-    # wrap title into rows using hook font
-    max_w = RW - 120 * RENDER_SCALE
-    title_segs = [(title, (230, 237, 243))]
-    rows = wrap_segments(title_segs, max_w, draw, HOOK_TITLE_FONT)
-    # flatten rows to reconstruct display with spaces
-    # Build display strings per row clipped to n chars total
-    # First flatten title into chars including implicit wrap newlines
-    # Simpler: walk rows and consume n chars
-    lh = int(HOOK_TITLE_SIZE * 1.35)
+    # --- top badge: scroll-stopper ---
+    badge = "  60-SECOND  FIX  "
+    bw = tw(draw, badge, FONT)
+    # badge background accent
+    bx = RW // 2 - bw // 2 - 6 * RENDER_SCALE
+    by = int(RH * 0.26)
+    draw.rounded_rectangle([bx - 18 * RENDER_SCALE, by - 10 * RENDER_SCALE,
+                            bx + bw + 18 * RENDER_SCALE, by + 32 * RENDER_SCALE],
+                           radius=14 * RENDER_SCALE, fill=ACCENT)
+    draw.text((bx, by), badge, font=FONT, fill=TERM_BG)
+
+    # wrap title into rows using colored segs
+    max_w = RW - 70 * RENDER_SCALE
+    segs = _hook_title_segs(title)
+    rows = wrap_segments(segs, max_w, draw, HOOK_TITLE_FONT)
+    lh = int(HOOK_TITLE_SIZE * 1.28)
     total_h = len(rows) * lh if rows else lh
-    y0 = int(RH * 0.38) - total_h // 2
+    y0 = int(RH * 0.34) - total_h // 2 + int(36 * RENDER_SCALE)
 
     remaining = n
-    # for cursor position track last drawn char pos
     last_x = 0
     last_y = y0
-    last_row_w = 0
-    row_idx = 0
     for ri, rsegs in enumerate(rows):
-        # reconstruct plain row text for width calc
         plain = "".join(t for t, _ in rsegs)
         if remaining <= 0:
-            # draw nothing for this row yet
-            pass
-        else:
-            take = min(len(plain), remaining)
-            # need to take chars from segs proportionally
-            chars_left = take
-            cx = 0
-            # compute centered x for full row (so typing stays centered)
+            continue
+        take = min(len(plain), remaining)
+        full_w = sum(tw(draw, t, HOOK_TITLE_FONT) for t, _ in rsegs)
+        if not rsegs:
             full_w = tw(draw, plain, HOOK_TITLE_FONT)
-            x0 = int(RW / 2 - full_w / 2)
-            cx = x0
-            segs_to_draw = []
-            for txt, col in rsegs:
-                if chars_left <= 0:
-                    break
-                piece = txt[:chars_left]
-                if piece:
-                    draw.text((cx, y0 + ri * lh), piece, font=HOOK_TITLE_FONT, fill=(230, 237, 243))
-                    cx += tw(draw, piece, HOOK_TITLE_FONT)
-                chars_left -= len(txt)
-            last_x = cx
-            last_y = y0 + ri * lh
-            last_row_w = full_w
-            row_idx = ri
-        remaining -= len("".join(t for t, _ in rsegs))
-        # also account for space that wrap removed? wrap_segments splits on space,
-        # so join length is close enough; remaining logic still works because
-        # spaces are explicit " " segs counted.
+        x0 = int(RW / 2 - full_w / 2)
+        cx = x0
+        chars_left = take
+        for txt, col in rsegs:
+            if chars_left <= 0:
+                break
+            piece = txt[:chars_left]
+            if piece:
+                draw.text((cx, y0 + ri * lh), piece, font=HOOK_TITLE_FONT, fill=col)
+                cx += tw(draw, piece, HOOK_TITLE_FONT)
+            chars_left -= len(txt)
+        last_x = cx
+        last_y = y0 + ri * lh
+        remaining -= len(plain)
         if remaining < 0:
             remaining = 0
 
     if cursor and n < len(title) + 2:
         cw = max(8 * RENDER_SCALE, int(HOOK_TITLE_SIZE * 0.35))
-        # place cursor at last_x
         draw.rectangle([last_x + 6, last_y + 8, last_x + 6 + cw, last_y + int(HOOK_TITLE_SIZE * 1.05)], fill=CURSOR_COLOR)
 
     if sub_on and sub:
-        max_sw = RW - 140 * RENDER_SCALE
+        # accent line above subtitle
+        draw.rectangle([RW // 2 - 70 * RENDER_SCALE, y0 + total_h + 22 * RENDER_SCALE,
+                        RW // 2 + 70 * RENDER_SCALE, y0 + total_h + 26 * RENDER_SCALE], fill=ACCENT)
+        max_sw = RW - 110 * RENDER_SCALE
         sub_rows = wrap_segments([(sub, OUTPUT_COLOR)], max_sw, draw, HOOK_SUB_FONT)
-        sub_lh = int(HOOK_SUB_SIZE * 1.35)
-        sub_y = y0 + total_h + 48 * RENDER_SCALE
+        sub_lh = int(HOOK_SUB_SIZE * 1.4)
+        sub_y = y0 + total_h + 44 * RENDER_SCALE
         for sr in sub_rows:
             plain = "".join(t for t, _ in sr)
-            sw = tw(draw, plain, HOOK_SUB_FONT)
+            sw = sum(tw(draw, t, HOOK_SUB_FONT) for t, _ in sr)
             sx = int(RW / 2 - sw / 2)
             cx = sx
             for txt, col in sr:
@@ -411,12 +460,15 @@ def render_hook(entry):
                     draw.text((cx, sub_y), txt, font=HOOK_SUB_FONT, fill=OUTPUT_COLOR)
                 cx += tw(draw, txt, HOOK_SUB_FONT)
             sub_y += sub_lh
-
-    # tiny accent line under title
-    if sub_on:
-        line_w = 80 * RENDER_SCALE
-        draw.rectangle([RW//2 - line_w//2, y0 + total_h + 18*RENDER_SCALE,
-                        RW//2 + line_w//2, y0 + total_h + 22*RENDER_SCALE], fill=ACCENT)
+        # bottom "keep watching" pill
+        keep = "KEEP  WATCHING  \u25B6"
+        kw = tw(draw, keep, FONT)
+        kx = RW // 2 - kw // 2
+        ky = sub_y + 22 * RENDER_SCALE
+        draw.rounded_rectangle([kx - 16 * RENDER_SCALE, ky - 10 * RENDER_SCALE,
+                                kx + kw + 16 * RENDER_SCALE, ky + 30 * RENDER_SCALE],
+                               radius=12 * RENDER_SCALE, fill=(38, 46, 62))
+        draw.text((kx, ky), keep, font=FONT, fill=(190, 198, 212))
     return img
 
 # ================= EXPLAIN SCENE =================
@@ -470,6 +522,16 @@ def get_explain_full(lines):
     img = EDITOR_BASE.copy()
     _draw_code_block(img, lines, range(len(lines)), dim=1.0)
     _EXPLAIN_FULL_CACHE[key] = img
+    return img
+
+def get_explain_full_blur(lines):
+    key = tuple(lines)
+    if key in _EXPLAIN_FULL_BLUR_CACHE:
+        return _EXPLAIN_FULL_BLUR_CACHE[key]
+    img = get_explain_full(lines).copy()
+    img = img.filter(ImageFilter.GaussianBlur(1.2 * RENDER_SCALE))
+    img = ImageEnhance.Brightness(img).enhance(0.88)
+    _EXPLAIN_FULL_BLUR_CACHE[key] = img
     return img
 
 def get_explain_bg(lines, settled):
@@ -540,8 +602,11 @@ def render_explain(entry):
         draw_statusbar(draw, fname)
         return img
 
-    # full code always visible as background
-    img = get_explain_full(lines).copy()
+    # full code background — blur other lines a little while center card is up
+    if phase in ("lift", "center", "return"):
+        img = get_explain_full_blur(lines).copy()
+    else:
+        img = get_explain_full(lines).copy()
     draw = ImageDraw.Draw(img)
     draw_header(draw, fname)
     draw_statusbar(draw, fname)
@@ -886,44 +951,38 @@ def build_timeline(config, voice):
         if stype == "hook":
             title = step.get("title", "")
             sub = step.get("sub", "")
-            # optional narration for hook
-            hook_narr = (step.get("narration") or "").strip()
-            # typewriter title
+            hook_speak = (step.get("narration") or f"{title}. {sub}").strip()
+            hook_pcm = None
+            hook_dur_frames = 0
+            start_fc = fc[0]
+            start_sample = now_s()
+            if hook_speak:
+                try:
+                    hook_pcm = tts_pcm(hook_speak, voice, f"s{idx}hook")
+                    narration_events.append((start_sample, hook_pcm))
+                    hook_dur_frames = int(round(len(hook_pcm) / SR * FPS))
+                except Exception as e:
+                    print(f"  [{idx+1}/{total}] hook TTS FAIL: {e}")
             total_chars = len(title)
-            # clicks for each char
             for i in range(total_chars):
                 ch = title[i]
                 deep = ch == " "
-                # schedule press immediately
                 clicks.append((now_s(), deep, False))
-                # release shortly after
                 clicks.append((now_s() + int(SR * 0.028), False, True))
                 for _ in range(max(1, round(FPS / random.uniform(16, 24)))):
                     push({"type": "hook", "title": title, "sub": sub, "n": i + 1, "sub_on": False, "cursor": True})
-            # hold after title typed
             for _ in range(int(FPS * 0.5)):
                 push({"type": "hook", "title": title, "sub": sub, "n": total_chars, "sub_on": False, "cursor": cursor_state(fc[0])})
-            # reveal sub
             for _ in range(int(FPS * 0.35)):
                 push({"type": "hook", "title": title, "sub": sub, "n": total_chars, "sub_on": True, "cursor": False})
-            # optional hook narration plays during sub hold
-            hold = int(FPS * 0.8)
-            if hook_narr:
-                try:
-                    pcm = tts_pcm(hook_narr, voice, f"s{idx}")
-                    narration_events.append((now_s() - int(FPS*0.35/ FPS * SR) - int(0.5*SR), pcm))
-                    # Actually align to start of sub reveal; simpler append at sub reveal start
-                    # re-append correctly:
-                    narration_events.pop()
-                    # narration should start when sub appears
-                    sub_start = now_s() - int(FPS*0.35/ FPS * SR)
-                    # we already pushed sub frames; estimate start = now - 0.35s
-                    narration_events.append((max(0, now_s() - int(0.35*SR)), pcm))
-                    hold = max(hold, int(round(len(pcm)/SR*FPS)) + int(FPS*0.2))
-                except Exception as e:
-                    print(f"  [{idx+1}/{total}] hook TTS FAIL: {e}")
-            # hold with sub visible
-            for _ in range(max(hold, int(FPS*1.0))):
+            elapsed = fc[0] - start_fc
+            # ensure hook voice fully plays + breathing room
+            if hook_pcm is not None:
+                needed = hook_dur_frames - elapsed + int(FPS * 0.6)
+                hold = max(int(FPS * 1.0), needed)
+            else:
+                hold = int(FPS * 1.0)
+            for _ in range(max(hold, 0)):
                 push({"type": "hook", "title": title, "sub": sub, "n": total_chars, "sub_on": True, "cursor": False})
             print(f"  [{idx+1}/{total}] [hook] {title}")
             continue
@@ -1077,6 +1136,9 @@ def build_timeline(config, voice):
             out_text, err_text = "", str(e)
         elapsed = time.time() - t_run0
         update_cwd_from_cmd(cmd)
+        # ls on empty dir — show "(empty)" so the step is visible
+        if not out_text.strip() and not err_text.strip() and cmd.strip().startswith("ls"):
+            out_text = "  (empty)"
         # show a "running…" indicator for the real execution time (capped)
         if elapsed > 0.9:
             n_run = min(int(elapsed * FPS), int(FPS * 4))
@@ -1134,6 +1196,12 @@ def main():
     config_path = args[0] if args else "config.yaml"
     ensure_config(config_path)
     config = load_config(config_path)
+    # theme — auto picks one of 3 schemas so videos don't look identical
+    theme_cfg = config.get("theme", "auto")
+    if theme_cfg == "auto" or theme_cfg not in THEMES:
+        theme_cfg = random.choice(list(THEMES.keys()))
+    apply_theme(theme_cfg)
+    print(f"Theme: {theme_cfg}")
     if preview:
         # preview hook + explain center with wrapping
         if any(s.get("type") == "hook" for s in config.get("steps", [])):
@@ -1194,16 +1262,30 @@ def main():
         silent,
     ], stdin=subprocess.PIPE)
     t0 = time.time()
+    prev_entry = None
+    prev_raw = None
+    cached = 0
     for i, entry in enumerate(frames):
-        img = render_frame(entry)
-        proc.stdin.write(img.tobytes())
+        if entry == prev_entry and prev_raw is not None:
+            raw = prev_raw
+            cached += 1
+        else:
+            img = render_frame(entry)
+            raw = img.tobytes()
+            # keep a copy for next duplicate check (dict equality handles sets/lists)
+            try:
+                prev_entry = entry.copy() if isinstance(entry, dict) else entry
+            except Exception:
+                prev_entry = entry
+            prev_raw = raw
+        proc.stdin.write(raw)
         if (i + 1) % 100 == 0 or i + 1 == total_frames:
             elapsed = time.time() - t0
             speed = (i + 1) / max(0.01, elapsed)
             pct = (i + 1) / total_frames * 100
             eta = (total_frames - i - 1) / max(0.01, speed)
-            print(f"\r  [{i + 1}/{total_frames}] {pct:.0f}% | {speed:.1f} fps | ETA {eta:.0f}s   ", end="", flush=True)
-    print()
+            print(f"\r  [{i + 1}/{total_frames}] {pct:.0f}% | {speed:.1f} fps | ETA {eta:.0f}s | cached {cached}  ", end="", flush=True)
+    print(f"\n  (reused {cached}/{total_frames} duplicate frames — no quality loss)")
     proc.stdin.close()
     proc.wait()
     print("\n--- Muxing ---")
