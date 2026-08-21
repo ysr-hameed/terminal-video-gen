@@ -101,6 +101,7 @@ steps:
 
   - type: explain
     file: "vault/passgen.py"
+    intro: "Watch me type the whole script, then I'll walk you through it."
     code: |
       import secrets, string
 
@@ -112,23 +113,23 @@ steps:
           print(f"Password {i+1}: {gen()}")
     lines:
       - line: 1
-        say: "At the top we import secrets — Python's built-in for secure random stuff. Way safer than regular random."
+        say: "We import secrets — Python's secure random module."
       - line: 3
-        say: "Here's our function gen. It takes one argument — how long you want the password."
+        say: "gen() builds one password of a given length."
       - line: 4
-        say: "This builds the character pool — letters, numbers, and a few symbols to make it strong."
+        say: "The pool mixes letters, digits and symbols."
       - line: 5
-        say: "secrets dot choice picks one random character, and join stitches them together until we hit the length."
+        say: "We pick random chars and join them."
       - line: 7
-        say: "Then a simple loop — do this five times."
+        say: "The loop runs five times."
       - line: 8
-        say: "And print each password. That's literally the whole program."
+        say: "Then we print each password."
 
-  - narration: "Moment of truth — let's run it. We're already in the vault folder, so just python3 passgen.py."
+  - narration: "Moment of truth — let's run it. We're in the vault folder, so just python3 passgen.py."
     command: "python3 passgen.py"
 
-  - narration: "Boom! Five strong passwords instantly. Save this script and never reuse passwords again."
-    command: "echo Done — passwords ready!"
+  - narration: "Love it? Follow for more Python tricks and subscribe so you don't miss the next one."
+    command: "echo Follow  •  Subscribe  •  More coming soon!"
 """
 
 # ================= FONT =================
@@ -143,7 +144,7 @@ def load_font():
     return ImageFont.load_default(), None
 
 FONT, FONT_PATH = load_font()
-CENTER_FONT_SIZE = int(FONT_SIZE * 1.45)
+CENTER_FONT_SIZE = int(FONT_SIZE * 1.28)
 try:
     CENTER_FONT = ImageFont.truetype(FONT_PATH, CENTER_FONT_SIZE) if FONT_PATH else FONT
 except Exception:
@@ -765,8 +766,8 @@ def write_wav(path, float_arr, sr):
         w.writeframes(ints.tobytes())
 
 # ================= TIMELINE =================
-MOVE_FRAMES = 22
-SETTLE_FRAMES = int(FPS * 0.4)
+MOVE_FRAMES = 16
+SETTLE_FRAMES = int(FPS * 0.25)
 
 def build_timeline(config, voice):
     frames, clicks, narration_events = [], [], []
@@ -874,38 +875,62 @@ def build_timeline(config, voice):
             code = step.get("code", "")
             code_lines = code.split("\n")
             reveals = step.get("lines") or []
-            for _ in range(max(hold, int(FPS * 0.6))):
-                push({"type": "explain", "file": fname, "lines": code_lines,
-                      "settled": set(), "active": None, "phase": "center", "t": 0})
+            intro = (step.get("intro") or "").strip()
+
+            # optional short intro narration while filename header shows
+            intro_hold = int(FPS * 0.6)
+            if intro:
+                try:
+                    pcm = tts_pcm(intro, voice, f"s{idx}i")
+                    narration_events.append((now_s(), pcm))
+                    intro_hold = max(intro_hold, int(round(len(pcm) / SR * FPS)) + int(FPS * 0.2))
+                except Exception as e:
+                    print(f"  [{idx + 1}/{total}] intro TTS FAIL: {e}")
+            for _ in range(intro_hold):
+                push({"type": "editor", "file": fname, "typed": "", "cursor": True})
+
+            # PHASE A — type the whole file fast
+            typed = ""
+            for ch in code:
+                typed += ch
+                deep = ch in (" ", "\n", "\t")
+                clicks.append((now_s(), deep, False))
+                clicks.append((now_s() + int(SR * 0.028), False, True))
+                for _ in range(max(1, round(FPS / random.uniform(40, 55)))):
+                    push({"type": "editor", "file": fname, "typed": typed, "cursor": True})
+            for i in range(int(FPS * 0.7)):
+                push({"type": "editor", "file": fname, "typed": typed, "cursor": cursor_state(fc[0])})
+
+            # PHASE B — explain each line briefly
             settled = set()
             prev_ln = -1
             for ri, rv in enumerate(reveals):
                 ln = max(0, min(int(rv.get("line", 1)) - 1, len(code_lines) - 1))
                 say = (rv.get("say") or "").strip()
-                # fill gaps (blank lines etc) silently
+                # gap-fill blank/skipped lines quickly
                 for gap in range(prev_ln + 1, ln):
                     if gap not in settled:
                         settled.add(gap)
-                        for _ in range(6):
+                        for _ in range(4):
                             push({"type": "explain", "file": fname, "lines": code_lines,
                                   "settled": set(settled), "active": None, "phase": "center", "t": 1})
-                dur = int(FPS * 0.8)
+                dur = int(FPS * 0.5)
                 if say:
                     try:
                         pcm = tts_pcm(say, voice, f"s{idx}l{ri}")
                         narration_events.append((now_s(), pcm))
-                        dur = max(int(FPS * 0.9), int(round(len(pcm) / SR * FPS)) + int(FPS * 0.3))
+                        dur = max(int(FPS * 0.6), int(round(len(pcm) / SR * FPS)) + int(FPS * 0.15))
                     except Exception as e:
                         print(f"  [{idx + 1}/{total}] line TTS FAIL: {e}")
-                for z in range(12):
+                for z in range(10):
                     push({"type": "explain", "file": fname, "lines": code_lines,
                           "settled": set(settled), "active": ln, "phase": "center",
-                          "t": z / 11})
-                for _ in range(max(0, dur - 12)):
+                          "t": z / 9})
+                for _ in range(max(0, dur - 10)):
                     push({"type": "explain", "file": fname, "lines": code_lines,
                           "settled": set(settled), "active": ln, "phase": "center", "t": 1.0})
                 clicks.append((now_s(), True, False))
-                clicks.append((now_s()+int(SR*0.03), False, True))
+                clicks.append((now_s() + int(SR * 0.03), False, True))
                 for m in range(MOVE_FRAMES):
                     push({"type": "explain", "file": fname, "lines": code_lines,
                           "settled": set(settled), "active": ln, "phase": "move",
@@ -915,8 +940,8 @@ def build_timeline(config, voice):
                 for _ in range(SETTLE_FRAMES):
                     push({"type": "explain", "file": fname, "lines": code_lines,
                           "settled": set(settled), "active": ln, "phase": "settled", "t": 1})
-            # fill any trailing gaps beyond last explain line? not needed
-            for _ in range(int(FPS * 1.5)):
+
+            for _ in range(int(FPS * 1.8)):
                 push({"type": "explain", "file": fname, "lines": code_lines,
                       "settled": set(settled), "active": None, "phase": "final", "t": 1})
             path = os.path.join(os.getcwd(), fname)
@@ -974,12 +999,21 @@ def build_timeline(config, voice):
         clicks.append((now_s()+int(SR*0.03), False, True))
         buffer.append(prompt_segs() + [(typed, CMD_COLOR)])
         print(f"  [{idx + 1}/{total}] {cmd}  [{prompt_segs()[0][0]}$]")
+        t_run0 = time.time()
         try:
             r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=600, cwd=cur_dir)
             out_text, err_text = r.stdout, r.stderr
         except Exception as e:
             out_text, err_text = "", str(e)
+        elapsed = time.time() - t_run0
         update_cwd_from_cmd(cmd)
+        # show a "running…" indicator for the real execution time (capped)
+        if elapsed > 0.9:
+            n_run = min(int(elapsed * FPS), int(FPS * 4))
+            n_run = max(n_run, int(FPS * 0.6))
+            run_line = [("  … running", OUTPUT_COLOR)]
+            for _ in range(n_run):
+                push({"type": "terminal", "buffer": list(buffer) + [run_line], "partial": None, "cursor": cursor_state(fc[0])})
         for _ in range(int(FPS * 0.15)):
             push({"type": "terminal", "buffer": list(buffer), "partial": None, "cursor": False})
         for seg in wrap_output(out_text, OUTPUT_COLOR, mdraw):
@@ -990,7 +1024,7 @@ def build_timeline(config, voice):
             buffer.append(seg)
             for _ in range(max(1, int(FPS * 0.06))):
                 push({"type": "terminal", "buffer": list(buffer), "partial": None, "cursor": False})
-        for _ in range(int(FPS * 0.5)):
+        for _ in range(int(FPS * 0.9)):
             push({"type": "terminal", "buffer": list(buffer), "partial": None, "cursor": False})
     for i in range(int(FPS * 2.0)):
         push({"type": "terminal", "buffer": list(buffer),

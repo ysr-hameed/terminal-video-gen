@@ -8,7 +8,7 @@ steps:
   - narration: "First up — let's make sure Python is ready. This just prints your version."
     command: "python3 --version"
 
-  - narration: "We need a place for our project. mkdir means make directory — so we're creating a folder called vault."
+  - narration: "We need a place for the project. mkdir means make directory — so we're creating a folder called vault."
     command: "mkdir vault"
 
   - narration: "Now we'll jump inside. cd means change directory — think of it as opening that folder."
@@ -19,6 +19,7 @@ steps:
 
   - type: explain
     file: "vault/passgen.py"
+    intro: "Watch me type the whole script, then I'll walk you through it."
     code: |
       import secrets, string
 
@@ -30,20 +31,20 @@ steps:
           print(f"Password {i+1}: {gen()}")
     lines:
       - line: 1
-        say: "At the top we import secrets — Python's built-in for secure random stuff. Way safer than regular random."
+        say: "We import secrets — Python's secure random module."
       - line: 3
-        say: "Here's our function gen. It takes one argument — how long you want the password."
+        say: "gen() builds one password of a given length."
       - line: 4
-        say: "This builds the character pool — letters, numbers, and a few symbols to make it strong."
+        say: "The pool mixes letters, digits and symbols."
       - line: 5
-        say: "secrets dot choice picks one random character, and join stitches them together until we hit the length."
+        say: "We pick random chars and join them."
       - line: 7
-        say: "Then a simple loop — do this five times."
+        say: "The loop runs five times."
       - line: 8
-        say: "Print each password. That's literally the whole program."
+        say: "Then we print each password."
 
-  - narration: "Moment of truth — let's run it. We're already in the vault folder, so just python3 passgen.py."
+  - narration: "Moment of truth — let's run it. We're in the vault folder, so just python3 passgen.py."
     command: "python3 passgen.py"
 
-  - narration: "Boom! Five strong passwords instantly. Save this script and never reuse passwords again."
-    command: "echo Done — passwords ready!"
+  - narration: "Love it? Follow for more Python tricks and subscribe so you don't miss the next one."
+    command: "echo Follow  •  Subscribe  •  More coming soon!"
