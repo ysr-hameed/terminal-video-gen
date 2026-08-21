@@ -138,7 +138,7 @@ IS_TERMUX = os.path.isdir("/data/data/com.termux") or bool(os.environ.get("TERMU
 DOCS_DIR = "/storage/emulated/0/Documents" if IS_TERMUX else os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "output"
 )
-WORK_DIR = os.path.join(os.path.expanduser("~"), ".terminal_video_tmp")
+WORK_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "temp")
 WRITTEN_FILES = []
 
 FONT_CANDIDATES = [
@@ -979,7 +979,7 @@ def overlay_caption(base_img, text, highlight_idx):
 
 # ================= AUDIO =================
 
-def tts_generate(text, voice, out_path, rate="+28%"):
+def tts_generate(text, voice, out_path, rate="+35%"):
     # CLI fallback (kept for compatibility)
     subprocess.run(["edge-tts", "--voice", voice, "--text", text, "--write-media", out_path, "--rate", rate],
                    check=True, capture_output=True)
@@ -1013,7 +1013,7 @@ async def _edge_fetch(text, voice, rate):
             words_raw.append(chunk)
     return audio, words_raw
 
-def tts_pcm(text, voice, tag, rate="+28%"):
+def tts_pcm(text, voice, tag, rate="+35%"):
     """Return (pcm, words) where words is list of (word_text, start_sample, duration_samples) with precise TTS timing.
     Falls back to char-proportional estimate if edge_tts word boundaries unavailable."""
     if HAVE_EDGE_TTS:
