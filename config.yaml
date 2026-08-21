@@ -1,16 +1,20 @@
 voice: "en-US-GuyNeural"
 
 steps:
-  - narration: "First, check Python is installed."
+  - type: hook
+    title: "Stop using weak passwords"
+    sub: "Let's fix that in 60 seconds"
+
+  - narration: "First up — let's make sure Python is ready. This just prints your version."
     command: "python3 --version"
 
-  - narration: "Make a new folder for our project."
+  - narration: "We need a place for our project. mkdir means make directory — so we're creating a folder called vault."
     command: "mkdir vault"
 
-  - narration: "Go inside the folder."
+  - narration: "Now we'll jump inside. cd means change directory — think of it as opening that folder."
     command: "cd vault"
 
-  - narration: "Check what is inside. Empty for now."
+  - narration: "Let's check what's in here. ls lists files — and yep, it's empty. Fresh start."
     command: "ls"
 
   - type: explain
@@ -26,20 +30,20 @@ steps:
           print(f"Password {i+1}: {gen()}")
     lines:
       - line: 1
-        say: "Import secrets. Python's secure random module."
+        say: "At the top we import secrets — Python's built-in for secure random stuff. Way safer than regular random."
       - line: 3
-        say: "Define gen. It takes the password length."
+        say: "Here's our function gen. It takes one argument — how long you want the password."
       - line: 4
-        say: "Letters, digits and symbols form the character pool."
+        say: "This builds the character pool — letters, numbers, and a few symbols to make it strong."
       - line: 5
-        say: "Pick random characters and join them."
+        say: "secrets dot choice picks one random character, and join stitches them together until we hit the length."
       - line: 7
-        say: "Loop five times."
+        say: "Then a simple loop — do this five times."
       - line: 8
-        say: "Print every generated password."
+        say: "Print each password. That's literally the whole program."
 
-  - narration: "Now run it."
-    command: "cd vault && python3 passgen.py"
+  - narration: "Moment of truth — let's run it. We're already in the vault folder, so just python3 passgen.py."
+    command: "python3 passgen.py"
 
-  - narration: "Done! Five secure passwords generated."
-    command: "echo Complete!"
+  - narration: "Boom! Five strong passwords instantly. Save this script and never reuse passwords again."
+    command: "echo Done — passwords ready!"
