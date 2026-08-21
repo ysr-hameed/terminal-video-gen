@@ -423,20 +423,24 @@ EDITOR_BASE = build_editor_base()
 # ================= HOOK SCENE =================
 
 def _hook_title_segs(title):
-    # color key words to stop scroll — accent / red pop
+    # color key words to stop scroll — accent / red pop — theme-aware
+    is_light = TERM_BG[0] > 200
+    base = (30, 32, 35) if is_light else (230, 237, 243)
+    # green for passwords: darker on light, lighter on dark
+    green = (24, 110, 45) if is_light else (152, 195, 121)
     words = title.split()
     segs = []
     for wi, w in enumerate(words):
         low = w.lower().strip("!.,:;")
-        col = (230, 237, 243)
+        col = base
         if low == "stop":
             col = ACCENT
         elif low == "weak":
             col = ERROR_COLOR
         elif low in ("password", "passwords"):
-            col = (152, 195, 121)
+            col = green
         if wi > 0:
-            segs.append((" ", (230, 237, 243)))
+            segs.append((" ", base))
         segs.append((w, col))
     return segs
 
