@@ -76,6 +76,21 @@ THEMES = {
         "CARD_BG": (22, 38, 28), "STATUS_BG": (28, 36, 32), "NUM_COLOR": (92, 112, 98),
         "ACCENT": (63, 185, 80), "PWD_COLOR": (152, 195, 121), "PROMPT_COLOR": (63, 185, 80),
     },
+    "light": {
+        "TERM_BG": (248, 249, 250), "EDITOR_BG": (255, 255, 255), "ACTIVE_LINE": (230, 236, 245),
+        "CARD_BG": (242, 244, 248), "STATUS_BG": (235, 238, 242), "NUM_COLOR": (120, 130, 145),
+        "ACCENT": (0, 122, 255), "PWD_COLOR": (0, 122, 255), "PROMPT_COLOR": (40, 167, 69),
+    },
+    "paper": {
+        "TERM_BG": (253, 246, 227), "EDITOR_BG": (255, 251, 240), "ACTIVE_LINE": (238, 228, 200),
+        "CARD_BG": (250, 240, 220), "STATUS_BG": (240, 230, 210), "NUM_COLOR": (140, 130, 110),
+        "ACCENT": (211, 54, 130), "PWD_COLOR": (42, 161, 152), "PROMPT_COLOR": (133, 153, 0),
+    },
+    "ice": {
+        "TERM_BG": (236, 239, 244), "EDITOR_BG": (243, 246, 250), "ACTIVE_LINE": (215, 222, 233),
+        "CARD_BG": (230, 236, 245), "STATUS_BG": (220, 228, 238), "NUM_COLOR": (100, 110, 125),
+        "ACCENT": (94, 129, 172), "PWD_COLOR": (94, 129, 172), "PROMPT_COLOR": (163, 190, 140),
+    },
 }
 
 def apply_theme(name):
@@ -115,7 +130,8 @@ _EXPLAIN_FULL_BLUR_CACHE = {}
 
 DEFAULT_CONFIG_YAML = """\
 theme: auto
-voice: "en-US-GuyNeural"
+voice: "en-US-JennyNeural"
+# 6 themes: github,dracula,forest,light,paper,ice — auto picks randomly
 
 steps:
   - type: hook
@@ -123,21 +139,21 @@ steps:
     sub: "Let's fix that in 60 seconds"
     narration: "Stop scrolling! Still using weak passwords? You're at risk. Watch this sixty second fix."
 
-  - narration: "First up — let's make sure Python is ready. This just prints your version."
+  - narration: "Quick check — Python ready? Just prints your version."
     command: "python3 --version"
 
-  - narration: "We need a place for our project. mkdir means make directory — so we're creating a folder called vault."
+  - narration: "Make a folder — mkdir means make directory."
     command: "mkdir vault"
 
-  - narration: "Now we'll jump inside. cd means change directory — think of it as opening that folder."
+  - narration: "Jump inside — cd changes directory."
     command: "cd vault"
 
-  - narration: "Let's check what's in here. ls lists files — and yep, it's empty. Fresh start."
+  - narration: "List files — ls. Empty!"
     command: "ls"
 
   - type: explain
     file: "vault/passgen.py"
-    intro: "Watch me type the whole script, then I'll walk you through it."
+    intro: "Watch it type, then I'll explain fast."
     code: |
       import secrets, string
 
@@ -149,23 +165,23 @@ steps:
           print(f"Password {i+1}: {gen()}")
     lines:
       - line: 1
-        say: "We import secrets — Python's secure random module."
+        say: "We import secrets — secure random module."
       - line: 3
-        say: "gen() builds one password of a given length."
+        say: "gen builds one password of a given length."
       - line: 4
-        say: "The pool mixes letters, digits and symbols."
+        say: "Pool mixes letters, digits and symbols."
       - line: 5
-        say: "We pick random chars and join them."
+        say: "Pick random chars and join them."
       - line: 7
-        say: "The loop runs five times."
+        say: "Loop runs five times."
       - line: 8
-        say: "Then we print each password."
+        say: "Print each password."
 
-  - narration: "Moment of truth — let's run it. We're in the vault folder, so just python3 passgen.py."
+  - narration: "Let's run it — python3 passgen.py inside vault."
     command: "python3 passgen.py"
 
-  - narration: "Love it? Follow for more Python tricks and subscribe so you don't miss the next one."
-    command: "echo Follow  •  Subscribe  •  More coming soon!"
+  - narration: "Follow and subscribe for more!"
+    command: "echo Follow  •  Subscribe  •  More soon!"
 """
 
 # ================= FONT =================
@@ -207,6 +223,21 @@ try:
         HOOK_SUB_FONT = ImageFont.truetype(FONT_PATH, HOOK_SUB_SIZE)
 except Exception:
     pass
+
+# Caption fonts — bold, modern, alive
+CAPTION_SIZE = 48 * RENDER_SCALE
+CAPTION_HIGH_SIZE = 54 * RENDER_SCALE
+CAPTION_FONT = FONT
+CAPTION_HIGH_FONT = FONT
+for bp in ["/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+           "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"]:
+    if os.path.isfile(bp):
+        try:
+            CAPTION_FONT = ImageFont.truetype(bp, CAPTION_SIZE)
+            CAPTION_HIGH_FONT = ImageFont.truetype(bp, CAPTION_HIGH_SIZE)
+            break
+        except Exception:
+            continue
 
 
 def tw(draw, text, font=FONT):
@@ -843,10 +874,86 @@ def render_frame(entry):
 def cursor_state(fc):
     return (fc // (FPS // 2)) % 2 == 0
 
+def overlay_caption(base_img, text, highlight_idx):
+    """Modern alive caption: dark pill + white words + accent highlight with pop."""
+    if not text:
+        return base_img
+    words = text.strip().split()
+    if not words:
+        return base_img
+    highlight_idx = max(0, min(highlight_idx, len(words) - 1))
+    # layout — wrap to max width
+    max_w = RW - 80 * RENDER_SCALE
+    # quick wrap estimation using normal font
+    dummy = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    lines = []
+    cur = []
+    cur_w = 0
+    for wi, w in enumerate(words):
+        is_h = wi == highlight_idx
+        f = CAPTION_HIGH_FONT if is_h else CAPTION_FONT
+        ww = tw(dummy, w + " ", f)
+        if cur and cur_w + ww > max_w:
+            lines.append(cur)
+            cur = []
+            cur_w = 0
+        cur.append((w, is_h))
+        cur_w += ww
+    if cur:
+        lines.append(cur)
+    # measure block
+    lh = int(CAPTION_SIZE * 1.35)
+    # compute max line width for pill
+    line_ws = []
+    for line in lines:
+        w = 0
+        for txt, is_h in line:
+            f = CAPTION_HIGH_FONT if is_h else CAPTION_FONT
+            w += tw(dummy, txt + " ", f)
+        if line:
+            w -= tw(dummy, " ", CAPTION_FONT)  # last space
+        line_ws.append(w)
+    block_w = max(line_ws) if line_ws else 0
+    block_h = len(lines) * lh
+    pad_x, pad_y = 28 * RENDER_SCALE, 18 * RENDER_SCALE
+    pill_w = block_w + 2 * pad_x
+    pill_h = block_h + 2 * pad_y
+    # position: bottom, above safe area — modern reel places captions ~ 320px from bottom
+    pill_x = (RW - pill_w) // 2
+    pill_y = RH - 340 * RENDER_SCALE - pill_h
+    # clamp
+    pill_y = max(int(RH * 0.55), pill_y)
+    # composite with alpha for rounded dark pill
+    overlay = Image.new("RGBA", (RW, RH), (0, 0, 0, 0))
+    od = ImageDraw.Draw(overlay)
+    od.rounded_rectangle([pill_x, pill_y, pill_x + pill_w, pill_y + pill_h],
+                         radius=18 * RENDER_SCALE, fill=(0, 0, 0, 195))
+    # soft accent top line
+    od.rectangle([pill_x + 18 * RENDER_SCALE, pill_y, pill_x + pill_w - 18 * RENDER_SCALE, pill_y + 4 * RENDER_SCALE],
+                 fill=ACCENT + (220,) if len(ACCENT)==3 else ACCENT)
+    # draw words
+    y = pill_y + pad_y
+    for li, line in enumerate(lines):
+        lw = line_ws[li]
+        x = pill_x + (pill_w - lw) // 2
+        for txt, is_h in line:
+            f = CAPTION_HIGH_FONT if is_h else CAPTION_FONT
+            fill = ACCENT if is_h else (255, 255, 255)
+            # pop highlight slightly up
+            y_off = -6 * RENDER_SCALE if is_h else 0
+            # stroke for readability — modern white with black outline, accent also outlined
+            od.text((x, y + y_off), txt, font=f, fill=fill, stroke_width=7 * RENDER_SCALE, stroke_fill=(0, 0, 0))
+            x += tw(od, txt + " ", f)
+        y += lh
+    # alpha composite
+    base_rgba = base_img.convert("RGBA")
+    out = Image.alpha_composite(base_rgba, overlay)
+    return out.convert("RGB")
+
 # ================= AUDIO =================
 
-def tts_generate(text, voice, out_path):
-    subprocess.run(["edge-tts", "--voice", voice, "--text", text, "--write-media", out_path],
+def tts_generate(text, voice, out_path, rate="+28%"):
+    subprocess.run(["edge-tts", "--voice", voice, "--text", text, "--write-media", out_path, "--rate", rate],
                    check=True, capture_output=True)
 
 def decode_audio(path):
@@ -856,9 +963,9 @@ def decode_audio(path):
         return np.zeros(0, dtype=np.float32)
     return np.frombuffer(r.stdout, dtype=np.int16).astype(np.float32) / 32768.0
 
-def tts_pcm(text, voice, tag):
+def tts_pcm(text, voice, tag, rate="+28%"):
     p = os.path.join(WORK_DIR, f"{tag}.mp3")
-    tts_generate(text, voice, p)
+    tts_generate(text, voice, p, rate=rate)
     return decode_audio(p)
 
 def _bandpass_noise(rng, n, lo, hi):
@@ -915,13 +1022,13 @@ def write_wav(path, float_arr, sr):
         w.writeframes(ints.tobytes())
 
 # ================= TIMELINE =================
-LIFT_FRAMES = 14
-RETURN_FRAMES = 14
-SETTLE_FRAMES = int(FPS * 0.22)
-HIGHLIGHT_FRAMES = 10
+LIFT_FRAMES = 6
+RETURN_FRAMES = 6
+SETTLE_FRAMES = 2
+HIGHLIGHT_FRAMES = 3
 
 def build_timeline(config, voice):
-    frames, clicks, narration_events = [], [], []
+    frames, clicks, narration_events, caption_events = [], [], [], []
     fc = [0]
     def now_s():
         return int(round((fc[0] / FPS) * SR))
@@ -976,6 +1083,7 @@ def build_timeline(config, voice):
                 try:
                     hook_pcm = tts_pcm(hook_speak, voice, f"s{idx}hook")
                     narration_events.append((start_sample, hook_pcm))
+                    caption_events.append((start_sample, hook_speak, hook_pcm))
                     hook_dur_frames = int(round(len(hook_pcm) / SR * FPS))
                 except Exception as e:
                     print(f"  [{idx+1}/{total}] hook TTS FAIL: {e}")
@@ -987,17 +1095,17 @@ def build_timeline(config, voice):
                 clicks.append((now_s() + int(SR * 0.028), False, True))
                 for _ in range(max(1, round(FPS / random.uniform(16, 24)))):
                     push({"type": "hook", "title": title, "sub": sub, "n": i + 1, "sub_on": False, "cursor": True})
-            for _ in range(int(FPS * 0.5)):
+            for _ in range(int(FPS * 0.25)):
                 push({"type": "hook", "title": title, "sub": sub, "n": total_chars, "sub_on": False, "cursor": cursor_state(fc[0])})
-            for _ in range(int(FPS * 0.35)):
+            for _ in range(int(FPS * 0.2)):
                 push({"type": "hook", "title": title, "sub": sub, "n": total_chars, "sub_on": True, "cursor": False})
             elapsed = fc[0] - start_fc
-            # ensure hook voice fully plays + breathing room
+            # ensure hook voice fully plays + breathing room (logical, not fixed)
             if hook_pcm is not None:
-                needed = hook_dur_frames - elapsed + int(FPS * 0.6)
-                hold = max(int(FPS * 1.0), needed)
+                needed = hook_dur_frames - elapsed + int(FPS * 0.35)
+                hold = max(int(FPS * 0.5), needed)
             else:
-                hold = int(FPS * 1.0)
+                hold = int(FPS * 0.5)
             for _ in range(max(hold, 0)):
                 push({"type": "hook", "title": title, "sub": sub, "n": total_chars, "sub_on": True, "cursor": False})
             print(f"  [{idx+1}/{total}] [hook] {title}")
@@ -1008,12 +1116,13 @@ def build_timeline(config, voice):
             try:
                 pcm = tts_pcm(step_narr, voice, f"s{idx}")
                 narration_events.append((now_s(), pcm))
+                caption_events.append((now_s(), step_narr, pcm))
                 hold = max(1, int(round(len(pcm) / SR * FPS)))
             except Exception as e:
                 print(f"  [{idx + 1}/{total}] TTS FAIL: {e}")
                 hold = int(FPS * 0.5)
         else:
-            hold = int(FPS * 0.5)
+            hold = max(1, int(FPS * 0.25))  # minimal logical hold when no speech
         # ---------- explain ----------
         if stype == "explain":
             fname = step.get("file", "untitled.py")
@@ -1022,19 +1131,20 @@ def build_timeline(config, voice):
             reveals = step.get("lines") or []
             intro = (step.get("intro") or "").strip()
 
-            # optional short intro narration while filename header shows
-            intro_hold = int(FPS * 0.6)
+            # optional short intro narration while filename header shows — logical: max of tiny buffer or speech length
+            intro_hold = int(FPS * 0.3)
             if intro:
                 try:
                     pcm = tts_pcm(intro, voice, f"s{idx}i")
                     narration_events.append((now_s(), pcm))
-                    intro_hold = max(intro_hold, int(round(len(pcm) / SR * FPS)) + int(FPS * 0.2))
+                    caption_events.append((now_s(), intro, pcm))
+                    intro_hold = max(intro_hold, int(round(len(pcm) / SR * FPS)) + int(FPS * 0.12))
                 except Exception as e:
                     print(f"  [{idx + 1}/{total}] intro TTS FAIL: {e}")
             for _ in range(intro_hold):
                 push({"type": "editor", "file": fname, "typed": "", "cursor": True})
 
-            # PHASE A — type the whole file fast
+            # PHASE A — type the whole file fast (logical: speed 40-55 cps, no extra hardcoded wait)
             typed = ""
             for ch in code:
                 typed += ch
@@ -1043,19 +1153,20 @@ def build_timeline(config, voice):
                 clicks.append((now_s() + int(SR * 0.028), False, True))
                 for _ in range(max(1, round(FPS / random.uniform(40, 55)))):
                     push({"type": "editor", "file": fname, "typed": typed, "cursor": True})
-            for i in range(int(FPS * 0.7)):
+            for i in range(int(FPS * 0.35)):
                 push({"type": "editor", "file": fname, "typed": typed, "cursor": cursor_state(fc[0])})
 
-            # PHASE B — explain each line: highlight → lift → center → return
+            # PHASE B — explain each line: highlight → lift → center → return (logical: animation + speech length)
             for ri, rv in enumerate(reveals):
                 ln = max(0, min(int(rv.get("line", 1)) - 1, len(code_lines) - 1))
                 say = (rv.get("say") or "").strip()
-                dur = int(FPS * 0.5)
+                dur = int(FPS * 0.25)
                 if say:
                     try:
                         pcm = tts_pcm(say, voice, f"s{idx}l{ri}")
                         narration_events.append((now_s(), pcm))
-                        dur = max(int(FPS * 0.6), int(round(len(pcm) / SR * FPS)) + int(FPS * 0.15))
+                        caption_events.append((now_s(), say, pcm))
+                        dur = max(int(FPS * 0.35), int(round(len(pcm) / SR * FPS)) + int(FPS * 0.1))
                     except Exception as e:
                         print(f"  [{idx + 1}/{total}] line TTS FAIL: {e}")
 
@@ -1086,7 +1197,7 @@ def build_timeline(config, voice):
                     push({"type": "explain", "file": fname, "lines": code_lines,
                           "active": ln, "phase": "settled", "t": 1})
 
-            for _ in range(int(FPS * 1.8)):
+            for _ in range(int(FPS * 0.9)):
                 push({"type": "explain", "file": fname, "lines": code_lines,
                       "active": None, "phase": "final", "t": 1})
             path = os.path.join(os.getcwd(), fname)
@@ -1102,7 +1213,7 @@ def build_timeline(config, voice):
         if stype == "editor":
             fname = step.get("file", "untitled.py")
             code = step.get("code", "")
-            for _ in range(max(hold, int(FPS * 0.6))):
+            for _ in range(max(hold, int(FPS * 0.35))):
                 push({"type": "editor", "file": fname, "typed": "", "cursor": True})
             typed = ""
             for ch in code:
@@ -1112,7 +1223,7 @@ def build_timeline(config, voice):
                 clicks.append((now_s()+int(SR*0.028), False, True))
                 for _ in range(max(1, round(FPS / random.uniform(22, 34)))):
                     push({"type": "editor", "file": fname, "typed": typed, "cursor": True})
-            for i in range(int(FPS * 1.2)):
+            for i in range(int(FPS * 0.5)):
                 push({"type": "editor", "file": fname, "typed": typed, "cursor": cursor_state(fc[0])})
             path = os.path.join(os.getcwd(), fname)
             d = os.path.dirname(path)
@@ -1137,7 +1248,7 @@ def build_timeline(config, voice):
             for _ in range(max(1, round(FPS / random.uniform(18, 28)))):
                 push({"type": "terminal", "buffer": list(buffer),
                       "partial": prompt_segs() + [(typed, CMD_COLOR)], "cursor": True})
-        for _ in range(int(FPS * 0.4)):
+        for _ in range(int(FPS * 0.22)):
             push({"type": "terminal", "buffer": list(buffer),
                   "partial": prompt_segs() + [(typed, CMD_COLOR)], "cursor": cursor_state(fc[0])})
         clicks.append((now_s(), True, False))
@@ -1158,11 +1269,11 @@ def build_timeline(config, voice):
         # show a "running…" indicator for the real execution time (capped)
         if elapsed > 0.9:
             n_run = min(int(elapsed * FPS), int(FPS * 4))
-            n_run = max(n_run, int(FPS * 0.6))
+            n_run = max(n_run, int(FPS * 0.35))
             run_line = [("  … running", OUTPUT_COLOR)]
             for _ in range(n_run):
                 push({"type": "terminal", "buffer": list(buffer) + [run_line], "partial": None, "cursor": cursor_state(fc[0])})
-        for _ in range(int(FPS * 0.15)):
+        for _ in range(int(FPS * 0.12)):
             push({"type": "terminal", "buffer": list(buffer), "partial": None, "cursor": False})
         for seg in wrap_output(out_text, OUTPUT_COLOR, mdraw):
             buffer.append(seg)
@@ -1172,12 +1283,15 @@ def build_timeline(config, voice):
             buffer.append(seg)
             for _ in range(max(1, int(FPS * 0.06))):
                 push({"type": "terminal", "buffer": list(buffer), "partial": None, "cursor": False})
-        for _ in range(int(FPS * 0.9)):
+        # logical hold: show output just long enough to read — based on line count
+        out_lines = out_text.strip().splitlines() + err_text.strip().splitlines()
+        hold_out = max(int(FPS * 0.35), min(int(FPS * 1.0), max(1, len([l for l in out_lines if l.strip()])) * int(FPS * 0.18)))
+        for _ in range(hold_out):
             push({"type": "terminal", "buffer": list(buffer), "partial": None, "cursor": False})
-    for i in range(int(FPS * 2.0)):
+    for i in range(int(FPS * 1.0)):
         push({"type": "terminal", "buffer": list(buffer),
-              "partial": prompt_segs() + [("", CMD_COLOR)], "cursor": i < FPS})
-    return frames, clicks, narration_events
+              "partial": prompt_segs() + [("", CMD_COLOR)], "cursor": i < FPS * 0.5})
+    return frames, clicks, narration_events, caption_events
 
 # ================= MAIN =================
 
@@ -1246,7 +1360,7 @@ def main():
     print(f"Voice: {voice}")
     print(f"Steps: {len(steps)}")
     print("\n--- Timeline ---")
-    frames, clicks, narration_events = build_timeline(config, voice)
+    frames, clicks, narration_events, caption_events = build_timeline(config, voice)
     total_frames = len(frames)
     duration = total_frames / FPS
     print(f"  {total_frames} frames, ~{duration:.1f}s")
@@ -1279,21 +1393,49 @@ def main():
     ], stdin=subprocess.PIPE)
     t0 = time.time()
     prev_entry = None
-    prev_raw = None
+    prev_base_img = None
     cached = 0
+    # caption lookup — already sorted by start
+    caption_events_sorted = sorted(caption_events, key=lambda x: x[0])
     for i, entry in enumerate(frames):
-        if entry == prev_entry and prev_raw is not None:
-            raw = prev_raw
+        # base image with caching (without caption)
+        if entry == prev_entry and prev_base_img is not None:
+            base_img = prev_base_img
             cached += 1
         else:
-            img = render_frame(entry)
-            raw = img.tobytes()
-            # keep a copy for next duplicate check (dict equality handles sets/lists)
+            base_img = render_frame(entry)
             try:
                 prev_entry = entry.copy() if isinstance(entry, dict) else entry
             except Exception:
                 prev_entry = entry
-            prev_raw = raw
+            prev_base_img = base_img
+        # find active caption for this frame (logical timing from TTS length)
+        sample = int(i / FPS * SR)
+        cap_text = None
+        cap_idx = 0
+        for c_start, c_text, c_pcm in caption_events_sorted:
+            c_end = c_start + len(c_pcm)
+            if c_start <= sample < c_end:
+                cap_text = c_text
+                words = cap_text.strip().split()
+                if words:
+                    total_chars = sum(len(w) for w in words)
+                    prog = (sample - c_start) / max(1, len(c_pcm))
+                    target = prog * total_chars
+                    cum = 0
+                    for wi, w in enumerate(words):
+                        cum += len(w) + 1
+                        if cum >= target:
+                            cap_idx = wi
+                            break
+                    else:
+                        cap_idx = len(words) - 1
+                break
+        if cap_text:
+            img = overlay_caption(base_img.copy(), cap_text, cap_idx)
+            raw = img.tobytes()
+        else:
+            raw = base_img.tobytes()
         proc.stdin.write(raw)
         if (i + 1) % 100 == 0 or i + 1 == total_frames:
             elapsed = time.time() - t0

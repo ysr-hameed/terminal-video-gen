@@ -1,27 +1,27 @@
 theme: auto
-voice: "en-US-GuyNeural"
+voice: "en-US-JennyNeural"
 
 steps:
   - type: hook
     title: "Stop using weak passwords"
-    sub: "Let's fix that in 60 seconds"
-    narration: "Stop scrolling! Still using weak passwords? You're at risk. Watch this sixty second fix."
+    sub: "Fix it in 60 seconds"
+    narration: "Stop scrolling! Weak passwords? Fix in sixty seconds — watch!"
 
-  - narration: "First up — let's make sure Python is ready. This just prints your version."
+  - narration: "First, check Python."
     command: "python3 --version"
 
-  - narration: "We need a place for the project. mkdir means make directory — so we're creating a folder called vault."
+  - narration: "Make vault — mkdir makes a folder."
     command: "mkdir vault"
 
-  - narration: "Now we'll jump inside. cd means change directory — think of it as opening that folder."
+  - narration: "Enter it — cd changes directory."
     command: "cd vault"
 
-  - narration: "Let's check what's in here. ls lists files — and yep, it's empty. Fresh start."
+  - narration: "Empty — ls shows nothing."
     command: "ls"
 
   - type: explain
     file: "vault/passgen.py"
-    intro: "Watch me type the whole script, then I'll walk you through it."
+    intro: "Watch it type, quick explain."
     code: |
       import secrets, string
 
@@ -33,20 +33,20 @@ steps:
           print(f"Password {i+1}: {gen()}")
     lines:
       - line: 1
-        say: "We import secrets — Python's secure random module."
+        say: "Import secrets — secure random."
       - line: 3
-        say: "gen() builds one password of a given length."
+        say: "gen makes a password, length given."
       - line: 4
-        say: "The pool mixes letters, digits and symbols."
+        say: "Mix letters, digits, symbols."
       - line: 5
-        say: "We pick random chars and join them."
+        say: "Pick random chars and join."
       - line: 7
-        say: "The loop runs five times."
+        say: "Loop five times."
       - line: 8
-        say: "Then we print each password."
+        say: "Print each password."
 
-  - narration: "Moment of truth — let's run it. We're in the vault folder, so just python3 passgen.py."
+  - narration: "Now run it."
     command: "python3 passgen.py"
 
-  - narration: "Love it? Follow for more Python tricks and subscribe so you don't miss the next one."
-    command: "echo Follow  •  Subscribe  •  More coming soon!"
+  - narration: "Follow for more!"
+    command: "echo Follow  •  Subscribe!"
