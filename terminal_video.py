@@ -20,8 +20,14 @@ import json
 import re
 import wave
 import shutil
+import asyncio
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter, ImageEnhance
+try:
+    import edge_tts
+    HAVE_EDGE_TTS = True
+except ImportError:
+    HAVE_EDGE_TTS = False
 
 try:
     import yaml
@@ -974,6 +980,7 @@ def overlay_caption(base_img, text, highlight_idx):
 # ================= AUDIO =================
 
 def tts_generate(text, voice, out_path, rate="+28%"):
+    # CLI fallback (kept for compatibility)
     subprocess.run(["edge-tts", "--voice", voice, "--text", text, "--write-media", out_path, "--rate", rate],
                    check=True, capture_output=True)
 
@@ -984,10 +991,68 @@ def decode_audio(path):
         return np.zeros(0, dtype=np.float32)
     return np.frombuffer(r.stdout, dtype=np.int16).astype(np.float32) / 32768.0
 
+def _decode_mp3_bytes(data):
+    tmp = os.path.join(WORK_DIR, f"_tmp_{int(time.time()*1000)}_{random.randint(0,9999)}.mp3")
+    os.makedirs(WORK_DIR, exist_ok=True)
+    with open(tmp, "wb") as f:
+        f.write(data)
+    pcm = decode_audio(tmp)
+    try:
+        os.remove(tmp)
+    except: pass
+    return pcm
+
+async def _edge_fetch(text, voice, rate):
+    comm = edge_tts.Communicate(text, voice, rate=rate, boundary="WordBoundary")
+    audio = b""
+    words_raw = []
+    async for chunk in comm.stream():
+        if chunk["type"] == "audio":
+            audio += chunk["data"]
+        elif chunk["type"] == "WordBoundary":
+            words_raw.append(chunk)
+    return audio, words_raw
+
 def tts_pcm(text, voice, tag, rate="+28%"):
+    """Return (pcm, words) where words is list of (word_text, start_sample, duration_samples) with precise TTS timing.
+    Falls back to char-proportional estimate if edge_tts word boundaries unavailable."""
+    if HAVE_EDGE_TTS:
+        try:
+            audio, words_raw = asyncio.run(_edge_fetch(text, voice, rate))
+            pcm = _decode_mp3_bytes(audio)
+            # also save mp3 for debugging parity with old CLI path
+            p = os.path.join(WORK_DIR, f"{tag}.mp3")
+            with open(p, "wb") as f:
+                f.write(audio)
+            words = []
+            for w in words_raw:
+                # edge-tts offset/duration are in 100ns ticks (10M per second)
+                s = int(int(w["offset"]) * SR / 10_000_000)
+                d = int(int(w["duration"]) * SR / 10_000_000)
+                words.append((w["text"], s, d))
+            # fallback if no word boundaries (should not happen with WordBoundary)
+            if not words:
+                raise ValueError("no word boundaries")
+            return pcm, words
+        except Exception as e:
+            # fallback to CLI
+            print(f"  word-boundary fetch failed ({e}), fallback to CLI estimate")
+    # CLI fallback — estimate words uniformly by char weight (old behaviour)
     p = os.path.join(WORK_DIR, f"{tag}.mp3")
     tts_generate(text, voice, p, rate=rate)
-    return decode_audio(p)
+    pcm = decode_audio(p)
+    # estimate word timings proportionally
+    ws = text.strip().split()
+    total_chars = sum(len(w) for w in ws) or 1
+    total_samples = len(pcm)
+    words = []
+    cum = 0
+    for w in ws:
+        prop = len(w) / total_chars
+        d = int(prop * total_samples)
+        words.append((w, cum, d))
+        cum += d
+    return pcm, words
 
 def _bandpass_noise(rng, n, lo, hi):
     x = rng.standard_normal(n).astype(np.float32)
@@ -1102,9 +1167,9 @@ def build_timeline(config, voice):
             start_sample = now_s()
             if hook_speak:
                 try:
-                    hook_pcm = tts_pcm(hook_speak, voice, f"s{idx}hook")
+                    hook_pcm, hook_words = tts_pcm(hook_speak, voice, f"s{idx}hook")
                     narration_events.append((start_sample, hook_pcm))
-                    caption_events.append((start_sample, hook_speak, hook_pcm))
+                    caption_events.append((start_sample, hook_speak, hook_words, hook_pcm))
                     hook_dur_frames = int(round(len(hook_pcm) / SR * FPS))
                 except Exception as e:
                     print(f"  [{idx+1}/{total}] hook TTS FAIL: {e}")
@@ -1135,9 +1200,9 @@ def build_timeline(config, voice):
         step_narr = (step.get("narration") or "").strip()
         if step_narr:
             try:
-                pcm = tts_pcm(step_narr, voice, f"s{idx}")
+                pcm, words = tts_pcm(step_narr, voice, f"s{idx}")
                 narration_events.append((now_s(), pcm))
-                caption_events.append((now_s(), step_narr, pcm))
+                caption_events.append((now_s(), step_narr, words, pcm))
                 hold = max(1, int(round(len(pcm) / SR * FPS)))
             except Exception as e:
                 print(f"  [{idx + 1}/{total}] TTS FAIL: {e}")
@@ -1156,9 +1221,9 @@ def build_timeline(config, voice):
             intro_hold = int(FPS * 0.3)
             if intro:
                 try:
-                    pcm = tts_pcm(intro, voice, f"s{idx}i")
+                    pcm, words = tts_pcm(intro, voice, f"s{idx}i")
                     narration_events.append((now_s(), pcm))
-                    caption_events.append((now_s(), intro, pcm))
+                    caption_events.append((now_s(), intro, words, pcm))
                     intro_hold = max(intro_hold, int(round(len(pcm) / SR * FPS)) + int(FPS * 0.12))
                 except Exception as e:
                     print(f"  [{idx + 1}/{total}] intro TTS FAIL: {e}")
@@ -1184,9 +1249,9 @@ def build_timeline(config, voice):
                 dur = int(FPS * 0.25)
                 if say:
                     try:
-                        pcm = tts_pcm(say, voice, f"s{idx}l{ri}")
+                        pcm, words = tts_pcm(say, voice, f"s{idx}l{ri}")
                         narration_events.append((now_s(), pcm))
-                        caption_events.append((now_s(), say, pcm))
+                        caption_events.append((now_s(), say, words, pcm))
                         dur = max(int(FPS * 0.35), int(round(len(pcm) / SR * FPS)) + int(FPS * 0.1))
                     except Exception as e:
                         print(f"  [{idx + 1}/{total}] line TTS FAIL: {e}")
@@ -1430,27 +1495,42 @@ def main():
             except Exception:
                 prev_entry = entry
             prev_base_img = base_img
-        # find active caption for this frame (logical timing from TTS length)
+        # find active caption — precise word-boundary timing from TTS (not char estimate)
         sample = int(i / FPS * SR)
         cap_text = None
         cap_idx = 0
-        for c_start, c_text, c_pcm in caption_events_sorted:
+        for c_start, c_text, c_words, c_pcm in caption_events_sorted:
             c_end = c_start + len(c_pcm)
             if c_start <= sample < c_end:
                 cap_text = c_text
-                words = cap_text.strip().split()
-                if words:
-                    total_chars = sum(len(w) for w in words)
-                    prog = (sample - c_start) / max(1, len(c_pcm))
-                    target = prog * total_chars
-                    cum = 0
-                    for wi, w in enumerate(words):
-                        cum += len(w) + 1
-                        if cum >= target:
+                # c_words: list of (word_text, start_sample_in_clip, duration_samples)
+                elapsed = sample - c_start
+                # find word whose interval contains elapsed — exact TTS timing
+                found = False
+                for wi, (w_txt, w_start, w_dur) in enumerate(c_words):
+                    if w_start <= elapsed < w_start + w_dur:
+                        # map TTS word index to display word index (handle punctuation mismatch)
+                        disp_words = cap_text.strip().split()
+                        if len(c_words) == len(disp_words):
                             cap_idx = wi
-                            break
-                    else:
-                        cap_idx = len(words) - 1
+                        else:
+                            # fallback: proportional by word count
+                            cap_idx = int(wi / max(1, len(c_words)) * len(disp_words))
+                            cap_idx = max(0, min(cap_idx, len(disp_words)-1))
+                        found = True
+                        break
+                    elif elapsed < w_start:
+                        # in pause between words — keep previous word highlighted
+                        cap_idx = max(0, wi - 1)
+                        # map if length mismatch
+                        disp_words = cap_text.strip().split()
+                        if len(c_words) != len(disp_words):
+                            cap_idx = int(cap_idx / max(1, len(c_words)) * len(disp_words))
+                        found = True
+                        break
+                if not found:
+                    # after last word but before clip end — keep last word
+                    cap_idx = len(cap_text.strip().split()) - 1
                 break
         if cap_text:
             img = overlay_caption(base_img.copy(), cap_text, cap_idx)
