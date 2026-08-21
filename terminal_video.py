@@ -80,25 +80,46 @@ THEMES = {
         "TERM_BG": (248, 249, 250), "EDITOR_BG": (255, 255, 255), "ACTIVE_LINE": (230, 236, 245),
         "CARD_BG": (242, 244, 248), "STATUS_BG": (235, 238, 242), "NUM_COLOR": (120, 130, 145),
         "ACCENT": (0, 122, 255), "PWD_COLOR": (0, 122, 255), "PROMPT_COLOR": (40, 167, 69),
+        "CMD_COLOR": (30, 32, 35), "OUTPUT_COLOR": (75, 80, 90), "ERROR_COLOR": (200, 45, 50),
+        "SY_PLAIN": (45, 52, 65), "SY_KW": (155, 35, 147), "SY_STR": (24, 110, 45), "SY_NUM": (180, 85, 0),
+        "SY_COM": (110, 115, 130), "SY_FN": (0, 90, 170), "SY_BI": (0, 130, 130), "SY_BG_SCALE": 1.0,
     },
     "paper": {
         "TERM_BG": (253, 246, 227), "EDITOR_BG": (255, 251, 240), "ACTIVE_LINE": (238, 228, 200),
         "CARD_BG": (250, 240, 220), "STATUS_BG": (240, 230, 210), "NUM_COLOR": (140, 130, 110),
         "ACCENT": (211, 54, 130), "PWD_COLOR": (42, 161, 152), "PROMPT_COLOR": (133, 153, 0),
+        "CMD_COLOR": (50, 45, 30), "OUTPUT_COLOR": (90, 85, 75), "ERROR_COLOR": (204, 50, 50),
+        "SY_PLAIN": (60, 50, 40), "SY_KW": (150, 30, 90), "SY_STR": (30, 110, 45), "SY_NUM": (180, 90, 10),
+        "SY_COM": (135, 125, 105), "SY_FN": (30, 90, 160), "SY_BI": (10, 120, 120), "SY_BG_SCALE": 1.0,
     },
     "ice": {
         "TERM_BG": (236, 239, 244), "EDITOR_BG": (243, 246, 250), "ACTIVE_LINE": (215, 222, 233),
         "CARD_BG": (230, 236, 245), "STATUS_BG": (220, 228, 238), "NUM_COLOR": (100, 110, 125),
         "ACCENT": (94, 129, 172), "PWD_COLOR": (94, 129, 172), "PROMPT_COLOR": (163, 190, 140),
+        "CMD_COLOR": (45, 55, 70), "OUTPUT_COLOR": (75, 85, 100), "ERROR_COLOR": (190, 50, 60),
+        "SY_PLAIN": (55, 62, 75), "SY_KW": (120, 60, 140), "SY_STR": (30, 110, 80), "SY_NUM": (170, 85, 20),
+        "SY_COM": (110, 120, 135), "SY_FN": (40, 90, 170), "SY_BI": (20, 120, 130), "SY_BG_SCALE": 1.0,
     },
 }
 
 def apply_theme(name):
-    global TERM_BG, EDITOR_BG, ACTIVE_LINE, CARD_BG, STATUS_BG, NUM_COLOR, ACCENT, PWD_COLOR, PROMPT_COLOR, TERM_BASE, EDITOR_BASE
+    global TERM_BG, EDITOR_BG, ACTIVE_LINE, CARD_BG, STATUS_BG, NUM_COLOR, ACCENT, PWD_COLOR, PROMPT_COLOR
+    global CMD_COLOR, OUTPUT_COLOR, ERROR_COLOR, SY_PLAIN, SY_KW, SY_STR, SY_NUM, SY_COM, SY_FN, SY_BI
+    global TERM_BASE, EDITOR_BASE
     cfg = THEMES.get(name, THEMES["github"])
     TERM_BG = cfg["TERM_BG"]; EDITOR_BG = cfg["EDITOR_BG"]; ACTIVE_LINE = cfg["ACTIVE_LINE"]
     CARD_BG = cfg["CARD_BG"]; STATUS_BG = cfg["STATUS_BG"]; NUM_COLOR = cfg["NUM_COLOR"]
     ACCENT = cfg["ACCENT"]; PWD_COLOR = cfg["PWD_COLOR"]; PROMPT_COLOR = cfg["PROMPT_COLOR"]
+    # light themes override text/syntax colors for visibility
+    if "CMD_COLOR" in cfg:
+        CMD_COLOR = cfg["CMD_COLOR"]; OUTPUT_COLOR = cfg["OUTPUT_COLOR"]; ERROR_COLOR = cfg["ERROR_COLOR"]
+        SY_PLAIN = cfg["SY_PLAIN"]; SY_KW = cfg["SY_KW"]; SY_STR = cfg["SY_STR"]; SY_NUM = cfg["SY_NUM"]
+        SY_COM = cfg["SY_COM"]; SY_FN = cfg["SY_FN"]; SY_BI = cfg["SY_BI"]
+    else:
+        # reset to dark defaults
+        CMD_COLOR = (230, 237, 243); OUTPUT_COLOR = (139, 148, 158); ERROR_COLOR = (248, 81, 73)
+        SY_PLAIN = (171, 178, 191); SY_KW = (198, 120, 221); SY_STR = (152, 195, 121); SY_NUM = (209, 154, 102)
+        SY_COM = (92, 99, 112); SY_FN = (97, 175, 239); SY_BI = (86, 182, 194)
     # rebuild bases and clear caches
     globals()["TERM_BASE"] = build_term_base()
     globals()["EDITOR_BASE"] = build_editor_base()
@@ -130,7 +151,7 @@ _EXPLAIN_FULL_BLUR_CACHE = {}
 
 DEFAULT_CONFIG_YAML = """\
 theme: auto
-voice: "en-US-JennyNeural"
+voice: "en-IN-PrabhatNeural"
 # 6 themes: github,dracula,forest,light,paper,ice — auto picks randomly
 
 steps:

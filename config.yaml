@@ -1,5 +1,5 @@
 theme: auto
-voice: "en-US-JennyNeural"
+voice: "en-IN-PrabhatNeural"
 
 steps:
   - type: hook
