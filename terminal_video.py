@@ -108,6 +108,9 @@ THEMES = {
     },
 }
 
+def _is_light():
+    return TERM_BG[0] > 200
+
 def apply_theme(name):
     global TERM_BG, EDITOR_BG, ACTIVE_LINE, CARD_BG, STATUS_BG, NUM_COLOR, ACCENT, PWD_COLOR, PROMPT_COLOR
     global CMD_COLOR, OUTPUT_COLOR, ERROR_COLOR, SY_PLAIN, SY_KW, SY_STR, SY_NUM, SY_COM, SY_FN, SY_BI
@@ -454,25 +457,23 @@ def render_hook(entry):
     img = TERM_BASE.copy()
     draw = ImageDraw.Draw(img)
 
-    # --- top badge: scroll-stopper (perfectly centered) ---
+    # --- top badge: scroll-stopper (perfectly centered, anchor mm) ---
     badge = "STOP SCROLLING  •  60s FIX"
-    bw = tw(draw, badge, FONT)
-    bh = th(draw, badge, FONT)
-    # centered pill
     pad_x, pad_y = 22 * RENDER_SCALE, 12 * RENDER_SCALE
-    bx = (RW - bw) // 2
-    by = int(RH * 0.22)
+    cx, cy = RW // 2, int(RH * 0.22)
+    # pill size from textbbox with anchor mm
+    # measure via textbbox
+    l,t,r,b = draw.textbbox((0,0), badge, font=FONT, anchor="mm")
+    bw, bh = r - l, b - t
     # shadow
-    draw.rounded_rectangle([bx - pad_x + 4, by - pad_y + 4,
-                            bx + bw + pad_x + 4, by + bh + pad_y + 4],
+    draw.rounded_rectangle([cx - bw//2 - pad_x + 4, cy - bh//2 - pad_y + 4,
+                            cx + bw//2 + pad_x + 4, cy + bh//2 + pad_y + 4],
                            radius=14 * RENDER_SCALE, fill=(15, 20, 28))
-    draw.rounded_rectangle([bx - pad_x, by - pad_y,
-                            bx + bw + pad_x, by + bh + pad_y],
+    draw.rounded_rectangle([cx - bw//2 - pad_x, cy - bh//2 - pad_y,
+                            cx + bw//2 + pad_x, cy + bh//2 + pad_y],
                            radius=14 * RENDER_SCALE, fill=ACCENT)
-    # vertically centered text inside pill
-    tx, ty = bx, by + (bh // 2 - bh // 2)  # bh measured from bbox includes ascent; use by
-    # fine-tune: draw at bx, by (by aligns to top of bbox, pad_y gives equal top/bottom)
-    draw.text((bx, by), badge, font=FONT, fill=TERM_BG)
+    # text centered with anchor mm — perfect padding
+    draw.text((cx, cy), badge, font=FONT, fill=(255,255,255), anchor="mm")
 
     # wrap title into rows using colored segs
     max_w = RW - 70 * RENDER_SCALE
@@ -661,10 +662,13 @@ def draw_header(draw, fname):
 
 def draw_statusbar(draw, fname):
     sy = RH - STATUS_H
-    draw.text((20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), fname, font=FONT, fill=(230, 237, 243))
+    # filename — theme-aware
+    fname_col = (30, 32, 35) if _is_light() else (230, 237, 243)
+    py_col = ACCENT
+    draw.text((20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), fname, font=FONT, fill=fname_col)
     py = "Python"
     pw = tw(draw, py)
-    draw.text((RW - pw - 20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), py, font=FONT, fill=(97, 175, 239))
+    draw.text((RW - pw - 20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), py, font=FONT, fill=py_col)
 
 def render_explain(entry):
     lines = entry["lines"]
@@ -703,12 +707,13 @@ def render_explain(entry):
     tgt_y = Y0 + rows_before * LINE_HEIGHT
     tgt_x = CODE_X
 
-    # highlight in place — brief flash before lift and after return
+    # highlight in place — brief flash before lift and after return (theme-aware gutter)
     if phase in ("highlight", "settled"):
         draw.rectangle([0, tgt_y - 3, RW, tgt_y + own_rows * LINE_HEIGHT - 9], fill=ACTIVE_LINE)
         num = str(active + 1)
         nw = tw(draw, num)
-        draw.text((GUTTER_W - nw - 12 * RENDER_SCALE, tgt_y), num, font=FONT, fill=(210, 216, 224))
+        gutter_col = (45, 52, 65) if _is_light() else (210, 216, 224)
+        draw.text((GUTTER_W - nw - 12 * RENDER_SCALE, tgt_y), num, font=FONT, fill=gutter_col)
         segs = highlight_line(line)
         max_w = RW - CODE_X - 30 * RENDER_SCALE
         wrapped = wrap_segments(segs, max_w, draw, FONT) if line else []
@@ -724,8 +729,8 @@ def render_explain(entry):
             yy += LINE_HEIGHT
         return img
 
-    # for lift/center/return we hide original line with a ghost placeholder
-    draw.rectangle([0, tgt_y - 3, RW, tgt_y + own_rows * LINE_HEIGHT - 9], fill=(26, 32, 44))
+    # for lift/center/return we hide original line with a ghost placeholder — theme-aware
+    draw.rectangle([0, tgt_y - 3, RW, tgt_y + own_rows * LINE_HEIGHT - 9], fill=ACTIVE_LINE)
     # subtle dashed gutter number dimmed
     if line:
         num = str(active + 1)
@@ -776,16 +781,17 @@ def render_explain(entry):
                 [px - pad_x, py - pad_y, px + sw + pad_x, py + sh + pad_y],
                 radius=16 * RENDER_SCALE, fill=CARD_BG, outline=(52, 60, 74), width=1 * RENDER_SCALE)
             img.paste(frame, (px, py), frame)
-        # clean badge — small pill centered above card
+        # clean badge — small pill centered above card (anchor mm for perfect padding)
         badge = f"Line {active + 1}"
-        bw = tw(draw, badge, FONT)
-        # position above card
         card_top = cy - (li_img.height * scale // 2 if li_img else 0) - 24 * RENDER_SCALE if li_img else cy
-        bx, by = int(RW / 2 - bw / 2), int(card_top - LINE_HEIGHT * 1.05)
-        draw.rounded_rectangle([bx - 16 * RENDER_SCALE, by - 6 * RENDER_SCALE,
-                                bx + bw + 16 * RENDER_SCALE, by + LINE_HEIGHT - 10 * RENDER_SCALE],
+        cx_badge, cy_badge = RW // 2, int(card_top - LINE_HEIGHT * 0.55)
+        l,t,r,b = draw.textbbox((0,0), badge, font=FONT, anchor="mm")
+        bw2, bh2 = r - l, b - t
+        pad_xb, pad_yb = 16 * RENDER_SCALE, 8 * RENDER_SCALE
+        draw.rounded_rectangle([cx_badge - bw2//2 - pad_xb, cy_badge - bh2//2 - pad_yb,
+                                cx_badge + bw2//2 + pad_xb, cy_badge + bh2//2 + pad_yb],
                                radius=12 * RENDER_SCALE, fill=(38, 46, 62))
-        draw.text((bx, by + 2), badge, font=FONT, fill=(190, 198, 212))
+        draw.text((cx_badge, cy_badge), badge, font=FONT, fill=(190, 198, 212), anchor="mm")
 
     elif phase == "return":
         e = ease_io(min(1.0, t))
@@ -883,13 +889,14 @@ def render_editor(entry):
         cw = max(8 * RENDER_SCALE, int(FONT_SIZE * 0.55))
         draw.rectangle([cur_x + 2, cur_y + 4, cur_x + 2 + cw, cur_y + FONT_SIZE + 4], fill=CURSOR_COLOR)
     sy = RH - STATUS_H
-    draw.text((20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), entry["file"], font=FONT, fill=(230, 237, 243))
+    fname_col = (30, 32, 35) if _is_light() else (230, 237, 243)
+    draw.text((20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), entry["file"], font=FONT, fill=fname_col)
     info = f"Ln {cur_line_idx + 1}, Col {cur_col + 1}"
     iw = tw(draw, info)
     draw.text((RW - iw - 220 * RENDER_SCALE, sy + 13 * RENDER_SCALE), info, font=FONT, fill=NUM_COLOR)
     py = "Python"
     pw = tw(draw, py)
-    draw.text((RW - pw - 20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), py, font=FONT, fill=(97, 175, 239))
+    draw.text((RW - pw - 20 * RENDER_SCALE, sy + 13 * RENDER_SCALE), py, font=FONT, fill=ACCENT)
     return img
 
 def render_frame(entry):
