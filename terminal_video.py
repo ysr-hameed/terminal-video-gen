@@ -160,8 +160,12 @@ _EXPLAIN_FULL_BLUR_CACHE = {}
 
 DEFAULT_CONFIG_YAML = """\
 theme: auto
-voice: "en-IN-PrabhatNeural"
+voice: "en-IN-PrabhatNeural"  # en-IN-PrabhatNeural (male, your pick)
 # 6 themes: github,dracula,forest,light,paper,ice — auto picks randomly
+# optional viral background music — short 18s snippet looped, ducked under voice:
+# music: "music/viral_loop.mp3"  # or https://cdn.pixabay.com/audio/...mp3
+# music_volume: 0.11
+# music_duck: 0.32
 
 steps:
   - type: hook
@@ -1118,6 +1122,72 @@ def write_wav(path, float_arr, sr):
         w.setframerate(sr)
         w.writeframes(ints.tobytes())
 
+# ================= BACKGROUND MUSIC (copyright-free, short snippet) =================
+def _download_if_url(path_or_url):
+    if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
+        import urllib.request
+        local = os.path.join(WORK_DIR, f"music_{int(time.time())}.mp3")
+        os.makedirs(WORK_DIR, exist_ok=True)
+        print(f"  downloading music {path_or_url[:70]}...")
+        # use user-agent to avoid 403 on cdn.pixabay etc., and only fetch via ffmpeg trim if possible
+        try:
+            req = urllib.request.Request(path_or_url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req) as r, open(local, "wb") as out:
+                out.write(r.read())
+        except Exception as e:
+            # fallback to curl
+            print(f"  urllib failed ({e}), trying curl...")
+            subprocess.run(["curl", "-L", "-o", local, "-A", "Mozilla/5.0", path_or_url], check=False)
+        return local
+    return path_or_url
+
+def _load_music_pcm(music_path, target_len, base_vol=0.11, duck_vol=0.035, duck_regions=None, fade_sec=0.8):
+    """Load music, trim to short snippet (15-30s) and loop to target_len, apply ducking during narration."""
+    if not os.path.isfile(music_path):
+        print(f"  music not found: {music_path}")
+        return None
+    # decode full music to pcm first to know length
+    r = subprocess.run(["ffmpeg", "-y", "-i", music_path, "-ar", str(SR), "-ac", "1", "-f", "s16le", "-"],
+                       capture_output=True)
+    if not r.stdout:
+        print("  music decode failed")
+        return None
+    full = np.frombuffer(r.stdout, dtype=np.int16).astype(np.float32) / 32768.0
+    # use only a short snippet to save — take middle 18s (viral loop friendly, avoids long download)
+    snippet_sec = 18
+    snippet_len = snippet_sec * SR
+    if len(full) > snippet_len:
+        # take from 3s in to avoid intro silence
+        start = min(3*SR, len(full)-snippet_len)
+        full = full[start:start+snippet_len]
+    # loop or trim to target
+    if len(full) < target_len:
+        reps = int(np.ceil(target_len / len(full)))
+        full = np.tile(full, reps)[:target_len]
+    else:
+        full = full[:target_len]
+    # fade in/out
+    fade_n = int(fade_sec * SR)
+    fade_n = min(fade_n, len(full)//4)
+    if fade_n > 0:
+        full[:fade_n] *= np.linspace(0, 1, fade_n)
+        full[-fade_n:] *= np.linspace(1, 0, fade_n)
+    # build volume envelope with ducking during narration
+    env = np.full(target_len, base_vol, dtype=np.float32)
+    if duck_regions:
+        fade = int(0.18 * SR)
+        for s, e in duck_regions:
+            s = max(0, int(s)); e = min(target_len, int(e))
+            if e <= s: continue
+            # duck to lower volume
+            env[s:e] = duck_vol
+            # smooth fade at edges
+            for k in range(min(fade, s)):
+                env[s-k-1] = duck_vol + (base_vol-duck_vol) * (k / fade)
+            for k in range(min(fade, target_len-e)):
+                env[e+k] = duck_vol + (base_vol-duck_vol) * (k / fade)
+    return full * env
+
 # ================= TIMELINE =================
 LIFT_FRAMES = 6
 RETURN_FRAMES = 6
@@ -1471,12 +1541,27 @@ def main():
             add_into(master, s, synth_key_press(rng, deep=deep))
     for s, pcm in narration_events:
         add_into(master, s, pcm * 0.95)
+    # optional copyright-free background music — short snippet only, legit
+    music_src = config.get("music")
+    if music_src:
+        try:
+            local = _download_if_url(str(music_src).strip())
+            # duck music under every narration (so voice stays clear)
+            duck_regions = [(s, s + len(pcm)) for s, pcm in narration_events]
+            base_vol = float(config.get("music_volume", 0.11))
+            duck_vol = base_vol * float(config.get("music_duck", 0.32))
+            mpcm = _load_music_pcm(local, len(master), base_vol=base_vol, duck_vol=duck_vol, duck_regions=duck_regions)
+            if mpcm is not None:
+                print(f"  music: {os.path.basename(str(music_src))} @ {base_vol:.2f}→{duck_vol:.2f} duck ({len(mpcm)/SR:.1f}s looped from 18s snippet)")
+                add_into(master, 0, mpcm)
+        except Exception as e:
+            print(f"  music mix failed: {e}")
     peak = float(np.max(np.abs(master))) if master.size else 0.0
     if peak > 0.98:
         master *= 0.98 / peak
     audio_path = os.path.join(WORK_DIR, "audio.wav")
     write_wav(audio_path, master, SR)
-    print(f"  {len(clicks)} key events, {len(narration_events)} narrations")
+    print(f"  {len(clicks)} key events, {len(narration_events)} narrations" + (f", music {os.path.basename(str(music_src))}" if music_src else ""))
     print("\n--- Rendering ---")
     silent = os.path.join(WORK_DIR, "silent.mp4")
     proc = subprocess.Popen([

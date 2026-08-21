@@ -7,6 +7,16 @@ __pycache__/
 output/
 vault/
 frame_preview.png
+temp/
+.tmp/
+__pycache__/
+
+# Music — keep small placeholders, ignore large downloads (we only use 18s snippet, looped)
+music/*.mp3
+music/*.wav
+music/*.m4a
+!music/README.md
+!music/.gitkeep
 
 # OS / editor
 .DS_Store
