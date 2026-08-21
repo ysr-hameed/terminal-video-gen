@@ -8,12 +8,28 @@ Demo configs generate: hook → `python3 --version` → `mkdir vault` → `cd va
 
 ---
 ## Demo
-Watch a Look of Generated Video
-<video
-  src="[https://github.com/ysr-hameed/terminal-video-gen/raw/refs/heads/main/output/video.mp4](https://github.com/user-attachments/assets/49c966f9-8d9c-482d-a243-c27f4f54eb63)"
-  controls
-  width="360">
-</video>
+
+See **Terminal Video Gen** turn a simple YAML workflow into a polished, short-form coding tutorial.
+
+The demo showcases:
+
+- **Scroll-stopping hook** with animated typography
+- **Real terminal commands** executed during rendering
+- **Fast code typing** with mechanical keyboard SFX
+- **Line-by-line code explanations** with animated focus
+- **Word-precise captions** synchronized with narration
+- **TTS narration** with natural pacing
+- **Background music** automatically ducked under the voice
+- **Modern terminal/editor visuals** with dynamic themes
+- **9:16 vertical format** optimized for Shorts, Reels and TikTok
+
+### Watch the Demo
+
+https://github.com/user-attachments/assets/49c966f9-8d9c-482d-a243-c27f4f54eb63
+
+> **One config. One command. One polished tutorial video.**
+>
+> Configure your scenes in `config.yaml` and let Terminal Video Gen handle the execution, animation, narration, captions, SFX, rendering and final MP4.
 ## Table of Contents
 - [Features](#features)
 - [Quick Start](#quick-start)
