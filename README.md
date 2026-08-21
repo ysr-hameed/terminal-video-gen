@@ -7,6 +7,13 @@ Generate **polished 9:16 (1080×1920 @30fps)** terminal tutorials — real comma
 Demo configs generate: hook → `python3 --version` → `mkdir vault` → `cd vault` → `ls (empty)` → *type entire `vault/passgen.py` fast* → *lift → center → return* explain per line → `python3 passgen.py` → CTA `echo Follow • Subscribe!`
 
 ---
+## Demo
+
+Watch the generator in action:
+
+https://github.com/ysr-hameed/terminal-video-gen/raw/refs/heads/main/output/video.mp4
+
+<video src="./output/video.mp4" controls width="360"></video>
 
 ## Table of Contents
 - [Features](#features)
