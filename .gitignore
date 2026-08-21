@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Generated artifacts (created at render time, auto-cleaned)
+output/
+vault/
+frame_preview.png
+
+# OS / editor
+.DS_Store

@@ -1,0 +1,45 @@
+voice: "en-US-GuyNeural"
+
+steps:
+  - narration: "First, check Python is installed."
+    command: "python3 --version"
+
+  - narration: "Make a new folder for our project."
+    command: "mkdir vault"
+
+  - narration: "Go inside the folder."
+    command: "cd vault"
+
+  - narration: "Check what is inside. Empty for now."
+    command: "ls"
+
+  - type: explain
+    file: "vault/passgen.py"
+    code: |
+      import secrets, string
+
+      def gen(length=16):
+          chars = string.ascii_letters + string.digits + "!@#$%^&*"
+          return "".join(secrets.choice(chars) for _ in range(length))
+
+      for i in range(5):
+          print(f"Password {i+1}: {gen()}")
+    lines:
+      - line: 1
+        say: "Import secrets. Python's secure random module."
+      - line: 3
+        say: "Define gen. It takes the password length."
+      - line: 4
+        say: "Letters, digits and symbols form the character pool."
+      - line: 5
+        say: "Pick random characters and join them."
+      - line: 7
+        say: "Loop five times."
+      - line: 8
+        say: "Print every generated password."
+
+  - narration: "Now run it."
+    command: "cd vault && python3 passgen.py"
+
+  - narration: "Done! Five secure passwords generated."
+    command: "echo Complete!"
