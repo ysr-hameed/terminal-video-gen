@@ -1,63 +1,79 @@
-# Terminal Video Gen — 9:16 Tutorial Video Generator
+# Terminal Video Generator — AI Coding Tutorial Maker for YouTube Shorts, Instagram Reels & TikTok
 
-Generate **polished 9:16 (1080×1920 @30fps)** terminal tutorials — real command execution, TTS narration, mechanical keyboard SFX, syntax-highlighted code explain, modern captions and viral hooks. **<60s by default.** All config-driven via `config.yaml`.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.8%2B-blue?style=for-the-badge&logo=python" />
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/9%3A16-1080x1920-red?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/AI_TTS-edge--tts-orange?style=for-the-badge" />
+</p>
 
-> Output: `output/terminal_video_<timestamp>.mp4` (H.264 `CRF 15`, AAC `192k`). Temp workdir `temp/` auto-created and deleted after mux.
+<p align="center">
+  <b>Generate viral 9:16 coding tutorials automatically — real terminal, AI voice, auto captions, viral hooks & trending music. One YAML, one command.</b><br/>
+  <i>Perfect for YouTube Shorts • Instagram Reels • TikTok • Coding Tutorials • Python Automation</i>
+</p>
 
-Demo configs generate: hook → `python3 --version` → `mkdir vault` → `cd vault` → `ls (empty)` → *type entire `vault/passgen.py` fast* → *lift → center → return* explain per line → `python3 passgen.py` → CTA `echo Follow • Subscribe!`
+> **SEO Description:** Terminal Video Generator is an open-source AI-powered 9:16 video maker for coding tutorials. Automate terminal screen recording, code typing animation, AI voice-over (edge-tts), word-precise captions, viral hooks, and background music. Create faceless coding channels, programming shorts, and tech reels in under 60 seconds — config-driven with YAML, no manual editing.
+
+<details>
+<summary><b>🔍 Keywords for Search (SEO)</b></summary>
+
+`terminal video generator` `coding tutorial generator` `ai video generator` `youtube shorts automation` `reels video maker` `tiktok coding video` `terminal screen recorder` `code typing animation` `ai voice over video` `edge tts video generator` `auto captions video` `viral hook generator` `9:16 video maker` `python tutorial video` `faceless coding channel` `programming shorts maker` `automated video generation`
+</details>
 
 ---
-## Demo
 
-See **Terminal Video Gen** turn a simple YAML workflow into a polished, short-form coding tutorial.
+## 🎬 Demo — See It In Action
 
-The demo showcases:
+**Terminal Video Gen** turns a simple `config.yaml` into a polished short-form coding tutorial:
 
-- **Scroll-stopping hook** with animated typography
-- **Real terminal commands** executed during rendering
-- **Fast code typing** with mechanical keyboard SFX
-- **Line-by-line code explanations** with animated focus
-- **Word-precise captions** synchronized with narration
-- **TTS narration** with natural pacing
-- **Background music** automatically ducked under the voice
-- **Modern terminal/editor visuals** with dynamic themes
-- **9:16 vertical format** optimized for Shorts, Reels and TikTok
+- ✅ **Scroll-stopping hook** — animated pill + colored keywords, theme-aware, `anchor="mm"` perfect center
+- ✅ **Real terminal** — `~$` → `~/vault$` live `cwd`, real `subprocess.run`, `… running` for long commands
+- ✅ **Fast code typing** — `40-55 cps` with mechanical keyboard SFX (thock + tick)
+- ✅ **Line-by-line explain** — `lift → center → return` with `1.10×` card + `1.2px` blur
+- ✅ **Word-precise captions** — `WordBoundary` synced, alive highlight pop
+- ✅ **AI TTS** — `en-IN-PrabhatNeural +35%` (or any edge-tts voice), natural + fast
+- ✅ **Viral music** — 18s snippet looped + ducked
+- ✅ **9:16 vertical** — `1080×1920 @30fps`, `CRF 15`, `AAC 192k`, `<60s`
 
 ### Watch the Demo
-
 https://github.com/user-attachments/assets/49c966f9-8d9c-482d-a243-c27f4f54eb63
 
 > **One config. One command. One polished tutorial video.**
->
-> Configure your scenes in `config.yaml` and let Terminal Video Gen handle the execution, animation, narration, captions, SFX, rendering and final MP4.
-## Table of Contents
+
+---
+
+## 📚 Table of Contents
+- [Why Terminal Video Generator?](#why-terminal-video-generator)
 - [Features](#features)
-- [Quick Start](#quick-start)
-- [Config Schema (YAML)](#config-schema-yaml)
-- [Themes](#themes)
+- [Quick Start (2 Minutes)](#quick-start-2-minutes)
+- [Config Schema — Complete YAML Reference](#config-schema--complete-yaml-reference)
+- [Themes — 6 Auto-Random](#themes--6-auto-random)
 - [Voices & Speed](#voices--speed)
 - [Background Music (viral, copyright-free)](#background-music-viral-copyright-free)
 - [Captions (alive, word-precise)](#captions-alive-word-precise)
 - [File Structure](#file-structure)
-- [How It Works](#how-it-works)
-- [Performance (fast without quality loss)](#performance-fast-without-quality-loss)
-- [Custom Hook / Examples](#custom-hook--examples)
+- [How It Works (Architecture)](#how-it-works-architecture)
+- [Performance — Fast Without Quality Loss](#performance--fast-without-quality-loss)
+- [Customization & Examples](#customization--examples)
+- [Contributing — Help Us Build](#contributing--help-us-build)
+- [FAQ — SEO Friendly Answers](#faq--seo-friendly-answers)
 - [Troubleshooting](#troubleshooting)
+- [License & SEO](#license--seo)
 
 ---
 
-## Features
-- **Hook scene** — scroll-stopper on `TERM_BG`: top `STOP SCROLLING • 60s FIX` pill (accent, `anchor="mm"` perfect center), title with colored keywords (`Stop`=accent, `weak`=red, `passwords`=green, theme-aware), subtitle + accent line + `KEEP WATCHING ▶` pill. TTS speaks `title + sub` (your `narration` overrides).
-- **Terminal scene** — live `cwd` prompt (`~$` → `~/vault$`), real `subprocess.run(cwd=cur_dir)`, typed with `+35%` TTS, bottom `ls` shows ` (empty)` if empty, `… running` indicator for `>0.9s` commands (capped 4s).
-- **Explain scene** — **(A) type whole file fast (40–55 cps)** then **(B) lift → center → return** per line: `highlight 3f → lift 6f → center 10f+speech → return 6f → settled 2f`. Full code always visible, other lines **blurred 1.2px ×0.88** while card is up. Center card `1.10×` font, `CARD_BG` + shadow, `Line N` pill `anchor="mm"`.
-- **Editor scene** — classic char-by-char typing (alternative to explain).
-- **Captions** — modern dark pill (`rgba 0,0,0,195`) + `ACCENT` top bar, white + `7px` black stroke, **current word** in `ACCENT` + `54px` pop (`-6px` lift). **Word-precise** via `edge_tts WordBoundary` (`100ns` ticks → samples), not char-estimate, so highlight never drifts (handles pauses).
-- **Mechanical keyboard SFX** — bandpassed `220-900Hz` thock + `3.2-7kHz` tick, chirped `95→45Hz`, press + release (`0.028s` gap), `deep` for space/enter.
-- **Themes — 6, auto random** — `github/dracula/forest` (dark) + `light/paper/ice` (light, dark syntax for contrast). `theme: auto` picks randomly each run.
-- **Music — viral, legit, short snippet** — optional `music: "random"` picks one of `music/*.mp3` (50 × 18s synthetic phonk/trap/lofi, `2.8KB→14MB` total) — middle 18s looped, ducked `0.11→0.035` under voice, `0.8s` fade.
-- **9:16, 30fps, `CRF 15` `medium`** — duplicate-frame cache reuses `~70%` frames with zero quality loss.
+## Why Terminal Video Generator?
+
+**For Creators:** Stop screen-recording manually. Automate faceless coding channels, get consistent 9:16 output for **YouTube Shorts, Reels, TikTok** — no Premiere, no OBS.
+
+**For Developers:** Single-file `terminal_video.py` — readable, hackable, config-driven. Add a theme, voice, or hook in minutes.
+
+**For SEO & Growth:** Built-in viral hooks (5 formulas from 2026 research), WordBoundary captions (accessibility + retention), trending music ducking — all proven to **stop the scroll** and boost watch time.
 
 ---
+
+## ✨ Features
 
 ## Quick Start
 ```bash
@@ -295,6 +311,69 @@ Add your own: copy a `viral_*.mp3` to `music/` and set `music: "music/my_loop.mp
 
 ---
 
+
+---
+
+## 🤝 Contributing — Help Us Build
+
+We love contributions! Whether you fix a pill padding bug, add a new theme, or craft a viral hook — you're welcome.
+
+**Good First Issues:**
+- Add a new theme (light/dark) in `THEMES` (`terminal_video.py:69`)
+- Add a new hook layout in `render_hook` (`terminal_video.py:447`)
+- Add a viral loop to `music/` (18s, 128k, phonk/trap/lofi)
+- Improve caption animation in `overlay_caption` (`terminal_video.py:906`)
+
+**How to Contribute (3 Steps):**
+1. **Fork & Clone**
+   ```bash
+   git clone https://github.com/YOUR_USERNAME/terminal-video-gen.git
+   cd terminal-video-gen
+   python3 -m venv .venv && source .venv/bin/activate
+   pip install -r requirements.txt
+   ```
+2. **Create a Branch**
+   ```bash
+   git checkout -b feat/your-feature
+   # make changes, test: python terminal_video.py --frame
+   # and: python terminal_video.py  (check output/terminal_video_*.mp4)
+   ```
+3. **Push & PR**
+   ```bash
+   git add -A
+   git commit -m "feat: your feature"
+   git push origin feat/your-feature
+   # Open PR on GitHub — we review within 48h
+   ```
+
+**Code Style:** Keep `terminal_video.py` single-file, readable, `RERENDER_SCALE 1`, `FPS 30`, `CRF 15`. Use `anchor="mm"` for pills, theme-aware colors via `_is_light()`.
+
+**Community:** Star ⭐ the repo to support, open an Issue for bugs, Discussion for hook ideas. All contributors are credited in README.
+
+**SEO for Contributors:** Your PR description should include keywords like `terminal video generator`, `AI TTS`, `9:16` to help others discover your feature.
+
+
+
+---
+
+## FAQ — SEO Friendly Answers
+
+**What is Terminal Video Generator?**
+An open-source Python tool that automates 9:16 coding tutorial videos: terminal, code typing, AI voice (edge-tts), auto captions, hooks, music — all from YAML. Ideal for faceless YouTube Shorts, Reels, TikTok programming channels.
+
+**Is it free and legit for YouTube monetization?**
+Yes, MIT licensed. TTS via edge-tts (Microsoft) free for personal/commercial, music in `music/` is synthetic original (no copyright), or use Pixabay/Mixkit/YouTube Audio Library (see `music/README.md`). Never rip trending copyrighted songs.
+
+**How to make videos under 60 seconds?**
+Use concise `narration` (5-7 words), `+35%` TTS rate, and logical holds (speech-length + 0.1s buffer). Default config is `55-57s` (1671 frames) via `+35%` + short copy.
+
+**Can I add my own theme/voice/hook?**
+Yes — add a theme dict to `THEMES`, voice ID to `config.yaml:voice`, hook layout to `render_hook`. See `THEMES` table and `CONTRIBUTING.md`.
+
+**How to contribute?**
+Fork, branch, test with `--frame`, push, open PR. See [Contributing](#contributing--help-us-build).
+
+
 ## Troubleshooting
 - `ffmpeg not found` → `sudo apt install ffmpeg`
 - `edge-tts not found` → `pip install edge-tts` inside `.venv`
@@ -303,4 +382,11 @@ Add your own: copy a `viral_*.mp3` to `music/` and set `music: "music/my_loop.mp
 - Button text not centered → fixed via `anchor="mm"` pills (`render_hook:457`, `render_explain:783`, `generate_clean_hooks_v2.py:28`).
 
 License: MIT — free for personal/commercial, music in `music/` is synthetic original (no copyright).
+
+---
+
+### 🔎 SEO Keywords Cloud
+`terminal video generator` `ai coding tutorial maker` `youtube shorts automation` `instagram reels generator` `tiktok video maker` `9:16 video generator` `code typing animation` `terminal screen recorder` `ai voice over` `auto captions` `viral hook` `edge tts` `python tutorial video` `programming shorts` `faceless channel automation`
+
+> **For Search Engines:** This project is the best open-source **terminal video generator** for **AI-powered 9:16 coding tutorials** targeting **YouTube Shorts, Instagram Reels, TikTok**. Keywords: `terminal video generator`, `coding tutorial automation`, `AI TTS video`, `viral hook`, `auto captions`.
 
